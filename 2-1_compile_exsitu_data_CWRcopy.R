@@ -3,12 +3,16 @@
 ## 2-1_compile_exsitu_data_CWRcopy.R
 
 ### Author: Emily Beckman Bruns
-### Funding: Cooperative agreement between United States Botanic Garden and
-#    San Diego Botanic Garden; subcontract with The Morton Arboretum.
-#    With support from Botanic Gardens Conservation International U.S.
+### Funding:
+# Base script was funded by the Institude of Museum and Library Services
+#   (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
+# Smaller edits were added with funding from a cooperative agreement
+#   between the United States Botanic Garden and San Diego Botanic Garden
+#   (subcontracted to The Morton Arboretum), with support from
+#   Botanic Gardens Conservation International U.S.
 
 ### Creation date: 30 March 2022
-### Last updated: 23 May 2022
+### Last updated: 26 May 2022
 
 ### R version 4.1.3
 
@@ -59,12 +63,9 @@
 ################################################################################
 
 #rm(list=ls())
-my.packages <- c('plyr','tidyverse', 'data.table', #'anchors',
-                 'textclean',
-                 'measurements', #'naniar',
-                 'CoordinateCleaner','rnaturalearth',
-                 'rnaturalearthdata','maps','raster','spatialEco','leaflet'
-                )
+my.packages <- c('plyr','tidyverse', 'data.table', 'textclean',
+                 'measurements', 'CoordinateCleaner','rnaturalearth',
+                 'rnaturalearthdata','maps','raster','spatialEco','leaflet')
 # install.packages (my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
 rm(my.packages)
@@ -535,6 +536,10 @@ all_data3$taxon_full_name <- mgsub(all_data3$taxon_full_name,
 # make sure author is separated in taxon_full_name
 all_data3$taxon_full_name <- gsub("\\("," (",all_data3$taxon_full_name)
 all_data3$taxon_full_name <- str_squish(all_data3$taxon_full_name)
+
+# create folder for output data
+if(!dir.exists(file.path(main_dir,"outputs")))
+  dir.create(file.path(main_dir,"outputs"), recursive=T)
 
 # write copy of all data
   # select columns
