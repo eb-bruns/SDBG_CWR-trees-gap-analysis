@@ -29,7 +29,7 @@
 
 ### DATA OUT:
   #
-  # folder (spp_raw_points) with CSV of raw occurrence data for each target
+  # folder (taxon_raw_points) with CSV of raw occurrence data for each target
   #   species (e.g., Malus_angustifolia.csv)
   # CSV of all occurrence points without lat-long but with locality description
   #   (need_geolocation.csv)
@@ -59,8 +59,6 @@ lapply(my.packages, require, character.only=TRUE)
 
 # Google Drive folder with occurrence point data
 main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/In situ - H - records"
-# Google Drive folder with polygon data
-poly_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/IMLS MFA/occurrence_points"
 
 ################################################################################
 # Load functions
@@ -247,6 +245,7 @@ idigbio_raw$year <- as.numeric(idigbio_raw$year)
 idigbio_raw$year[which(idigbio_raw$year < 1500 |
   idigbio_raw$year > as.numeric(format(Sys.time(),"%Y")))] <- NA
   sort(unique(idigbio_raw$year))
+nrow(idigbio_raw) #60461
 
 # keep only necessary columns
 idigbio_raw <- idigbio_raw %>% dplyr::select(
@@ -438,6 +437,7 @@ redlist_raw$database <- "IUCN_RedList"
 
 # check data
 head(redlist_raw)
+nrow(redlist_raw) #47468
 
 # write file
 write.csv(redlist_raw, file.path(main_dir,"inputs","standardized_occurrence",
@@ -473,17 +473,18 @@ nrow(herb_raw) #181539
 
 # create taxon_name column
   # this method is not perfect; the taxonRank isn't always categoried correctly
-subsp <- herb_raw %>% filter(taxonRank == "Subspecies")
+unique(herb_raw$taxonRank)
+subsp <- herb_raw %>% dplyr::filter(taxonRank == "Subspecies")
 subsp$taxon_name <- paste(subsp$genus,subsp$specificEpithet,"subsp.",
   subsp$infraspecificEpithet)
-var <- herb_raw %>% filter(taxonRank == "Variety")
+var <- herb_raw %>% dplyr::filter(taxonRank == "Variety")
 var$taxon_name <- paste(var$genus,var$specificEpithet,"var.",
   var$infraspecificEpithet)
-form <- herb_raw %>% filter(taxonRank == "Form")
+form <- herb_raw %>% dplyr::filter(taxonRank == "Form")
 form$taxon_name <- paste(form$genus,form$specificEpithet,"f.",
   form$infraspecificEpithet)
-spp <- herb_raw %>% filter(is.na(taxonRank) | taxonRank == "Species" |
-  taxonRank == "Subform")
+spp <- herb_raw %>% dplyr::filter(
+  is.na(taxonRank) | taxonRank == "Species" | taxonRank == "Subform")
   spp$taxon_name <- paste(spp$genus,spp$specificEpithet)
 herb_raw <- Reduce(rbind.fill,list(subsp,var,form,spp))
 herb_raw$taxon_name[which(is.na(herb_raw$taxon_name))] <-
@@ -495,6 +496,8 @@ herb_raw$taxon_name <- gsub(" x "," +",herb_raw$taxon_name)
 herb_raw$taxon_name <- gsub(" × "," +",herb_raw$taxon_name)
 herb_raw$taxon_name <- str_squish(herb_raw$taxon_name)
 sort(unique(herb_raw$taxon_name))
+  # some records got removed if they are genus-level
+nrow(herb_raw) #176722
 
 # keep only necessary columns
 herb_raw <- herb_raw %>% dplyr::select(
@@ -603,6 +606,7 @@ nrow(exsitu_raw2) #9297
 # join the datasets together
 exsitu_raw <- rbind.fill(exsitu_raw1,exsitu_raw2)
 head(exsitu_raw)
+nrow(exsitu_raw) #10233
 
 ### standardize column names
 
@@ -655,6 +659,7 @@ write.csv(exsitu_raw, file.path(main_dir,"inputs","standardized_occurrence",
   "ex_situ.csv"),row.names=FALSE)
 #rm(exsitu_raw)
 
+
 ################################################################################
 ################################################################################
 # 2. Compile occurrence data
@@ -675,7 +680,7 @@ length(file_dfs) #5
 #   and fills with NA; 'Reduce' iterates through list and merges with previous.
 # this may take a few minutes if you have lots of data
 all_data_raw <- Reduce(rbind.fill, file_dfs)
-  nrow(all_data_raw) #7131852
+  nrow(all_data_raw) #3996317
   names(all_data_raw) #37
   table(all_data_raw$database)
 #     Ex_situ         GBIF      iDigBio IUCN_RedList  US_Herbaria
@@ -728,7 +733,7 @@ all_data <- rbind(matched,need_match)
 
 # check names that got excluded.....
 still_no_match <- all_data[which(is.na(all_data$taxon_name_status)),]
-  nrow(still_no_match) #183917
+  nrow(still_no_match) #3471128
 table(still_no_match$database)
 #sort(table(still_no_match$taxon_name))
 ## write out file to review if needed
@@ -739,6 +744,11 @@ table(still_no_match$database)
 # keep only rows for target taxa
 all_data <- all_data[which(!is.na(all_data$taxon_name_status)),]
   nrow(all_data) #525189
+
+### ! target taxa with no occurrence data:
+unique(taxon_list$taxon_name_acc)[
+  !(unique(taxon_list$taxon_name_acc) %in% (unique(all_data$taxon_name_acc)))]
+# Prunus +orthosepala
 
 #save(all_data, all_data_raw, file="all_data_to_clean.RData")
 #  rm(still_no_match, matched, need_match, all_data_raw)
@@ -807,7 +817,7 @@ all_data[!coord_test,]$flag <- paste0("Coordinates invalid")
 #all_data[!coord_test,c("decimalLatitude","decimalLongitude")] <- c(NA,NA)
 
 ## set header/column name order
-h.nms <- c("UID", "species_name_acc", "taxon_name", "scientificName",
+h.nms <- c("UID", "taxon_name_acc", "taxon_name", "scientificName",
   "taxonIdentificationNotes", "database", "year", "basisOfRecord",
   "establishmentMeans","decimalLatitude", "decimalLongitude",
   "coordinateUncertaintyInMeters", "geolocationNotes", "localityDescription",
@@ -821,8 +831,8 @@ all_data <- all_data %>% select(all_of(h.nms))
 locality_pts <- all_data %>% filter(!is.na(localityDescription) &
     !is.na(flag)) %>%
   arrange(desc(year)) %>%
-  distinct(species_name_acc,localityDescription,.keep_all=T)
-nrow(locality_pts) #77197
+  distinct(taxon_name_acc,localityDescription,.keep_all=T)
+nrow(locality_pts) #77485
 
 # move forward with subset of points that do have lat and long
 geo_pts <- all_data %>%
@@ -847,13 +857,13 @@ table(water_pts$database)
 # add water points to locality points if they have locality data
 locality_pts_add <- water_pts %>% filter(!is.na(localityDescription)) %>%
   arrange(desc(year)) %>%
-  distinct(species_name_acc,localityDescription,.keep_all=T)
-nrow(locality_pts_add) #1045
+  distinct(taxon_name_acc,localityDescription,.keep_all=T)
+nrow(locality_pts_add) #1046
 locality_pts <- rbind(locality_pts,locality_pts_add)
 # write file of locality-only points
 table(locality_pts$database)
 #    Ex_situ        GBIF     iDigBio US_Herbaria
-#       4090         770          78       73304
+#       4193         771          78       73489
 write.csv(locality_pts, file.path(main_dir,"outputs",
   paste0("need_geolocation_", Sys.Date(), ".csv")),
   row.names = F)
@@ -955,9 +965,9 @@ geo_pts <- geo_pts %>% arrange(database)
 #    databases from which duplicates were removed
 # can take a while to remove duplicates if there are lots a rows
 geo_pts2 <- geo_pts %>%
-  group_by(species_name_acc,lat_round,long_round) %>%
+  group_by(taxon_name_acc,lat_round,long_round) %>%
   mutate(all_source_databases = paste(unique(database), collapse = ',')) %>%
-  distinct(species_name_acc,lat_round,long_round,.keep_all=T) %>%
+  distinct(taxon_name_acc,lat_round,long_round,.keep_all=T) %>%
   ungroup() %>%
   dplyr::select(-flag)
 
@@ -980,7 +990,7 @@ geo_pts2[which(grepl("Ex_situ",geo_pts2$all_source_databases)),8:9] <-
   ex_situ_add
 
 ## set header/column name order
-h.nms2 <- c("species_name_acc", "taxon_name", "scientificName",
+h.nms2 <- c("taxon_name_acc", "taxon_name", "scientificName",
   "taxonIdentificationNotes", "database", "all_source_databases", "year",
   "basisOfRecord", "establishmentMeans","decimalLatitude", "decimalLongitude",
   "coordinateUncertaintyInMeters", "geolocationNotes", "localityDescription",
@@ -992,11 +1002,11 @@ geo_pts2 <- geo_pts2 %>% select(all_of(h.nms2))
 
 # take a look
 head(geo_pts2)
-nrow(geo_pts2) #83137
+nrow(geo_pts2) #84906
 table(geo_pts2$all_source_databases)
 table(geo_pts2$database)
 #        GBIF  US_Herbaria      iDigBio IUCN_RedList      Ex_situ
-#       70673         8628          891         1770         1175 [283 before adding all back in]
+#       71587         8996          945         2203         1175 [305 before adding all back in]
 
 write.csv(geo_pts2, file.path(main_dir,"outputs",
   paste0("Occurrences_Compiled_", Sys.Date(), ".csv")),row.names = F)
@@ -1005,15 +1015,15 @@ write.csv(geo_pts2, file.path(main_dir,"outputs",
 # 6. Look at results
 ################################################################################
 
-# summarize results for each target species
+# summarize results for each target taxon
   # lat-long records
-count_geo <- geo_pts2 %>% count(species_name_acc)
+count_geo <- geo_pts2 %>% count(taxon_name_acc)
 names(count_geo)[2] <- "num_latlong_records"
   # water records
-#count_water <- water_pts %>% count(species_name_acc)
+#count_water <- water_pts %>% count(taxon_name_acc)
 #names(count_water)[2] <- "num_water_records"
   # locality-only records
-count_locality <- locality_pts %>% count(species_name_acc)
+count_locality <- locality_pts %>% count(taxon_name_acc)
 names(count_locality)[2] <- "num_locality_records"
   # make table of all categories
 files <- list(count_geo,count_locality)#count_water,
@@ -1021,7 +1031,7 @@ summary <- setorder(Reduce(full_join, files),num_latlong_records,na.last=F)
 head(summary)
   # write file
 write.csv(summary, file.path(main_dir,"outputs",
-  paste0("occurrence_point_count_per_sp_", Sys.Date(), ".csv")),row.names = F)
+  paste0("occurrence_point_count_per_taxon_", Sys.Date(), ".csv")),row.names = F)
 as.data.frame(summary)
 
 ## can save data out to a file so don't have to rerun
@@ -1036,17 +1046,21 @@ as.data.frame(summary)
 
 #load(file.path(main_dir,"outputs","EO_data.RData"))
 
-# split lat-long points to create one CSV for each target species
-sp_split <- split(geo_pts2, as.factor(geo_pts2$species_name_acc))
+# split lat-long points to create one CSV for each target taxon
+sp_split <- split(geo_pts2, as.factor(geo_pts2$taxon_name_acc))
 names(sp_split) <- gsub(" ","_",names(sp_split))
 
 # write files
-if(!dir.exists(file.path(main_dir,"outputs","spp_raw_points")))
-  dir.create(file.path(main_dir,"outputs","spp_raw_points"), recursive=T)
+if(!dir.exists(file.path(main_dir,"outputs","taxon_raw_points")))
+  dir.create(file.path(main_dir,"outputs","taxon_raw_points"), recursive=T)
 lapply(seq_along(sp_split), function(i) write.csv(sp_split[[i]],
-  file.path(main_dir,"outputs","spp_raw_points",
+  file.path(main_dir,"outputs","taxon_raw_points",
   paste0(names(sp_split)[[i]], ".csv")),row.names = F))
 
 #unlink("all_data_to_clean.RData")
 #unlink(file.path(main_dir, "outputs", paste0("all_data_cleaning_",
 #Sys.Date(), ".csv")))
+
+######
+###### NOW RUN 3-1_refine_occurrence_points.R !!
+######
