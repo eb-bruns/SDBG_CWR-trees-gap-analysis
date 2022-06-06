@@ -1,7 +1,20 @@
 ################################################################################
 
-## 3-1_refine_occurrence_points.R
-### Authors: Shannon M. Still & Emily Beckman ### Date: 08/10/2020
+## 3-1_refine_occurrence_points_CWRcopy.R
+
+### Authors: Emily Beckman Bruns & Shannon M. Still
+### Funding:
+# Base script was funded by the Institude of Museum and Library Services
+#   (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
+# Moderate edits were added with funding from a cooperative agreement
+#   between the United States Botanic Garden and San Diego Botanic Garden
+#   (subcontracted to The Morton Arboretum), with support from
+#   Botanic Gardens Conservation International U.S.
+
+### Creation date: 26 May 2022
+### Last updated: 03 June 2022
+
+### R version 4.1.3
 
 ### DESCRIPTION:
   # Flags suspect points by adding a column for each type of flag, where
