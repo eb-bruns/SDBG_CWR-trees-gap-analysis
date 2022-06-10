@@ -1308,26 +1308,82 @@ geo_needs <- data_sel %>%
     num_acc = sum(!is.na(taxon_name_acc)),
     num_wild = sum(prov_type == "W"),
     NotH_YesCoords = sum(!is.na(lat_dd) & prov_type != "H"),
-    NotH_NoCoords_YesLocal = sum(is.na(lat_dd) & !is.na(all_locality) & prov_type != "H")
+    NotH_NoCoords_YesLocal = sum(is.na(lat_dd) & !is.na(all_locality) & prov_type != "H"),
+    Percent_NonH_NeedGeo = (sum(is.na(lat_dd) & !is.na(all_locality) & prov_type != "H") / sum(prov_type != "H")*100)
   )
-head(geo_needs)
+head(geo_needs,n=20)
 # write file
-write.csv(geo_needs, file.path(main_dir,"outputs",
-  paste0("ExSitu_Geolocation_Needs_Summary_", Sys.Date(), ".csv")),row.names = F)
+#write.csv(geo_needs, file.path(main_dir,"outputs",
+#  paste0("ExSitu_Geolocation_Needs_Summary_", Sys.Date(), ".csv")),row.names = F)
+
+# records that may need geolocation
+#   (no lat-long, yes locality, prov type not H)
+need_geo <- data_sel %>%
+  dplyr::filter(is.na(lat_dd) & !is.na(all_locality) & prov_type != "H")
+nrow(need_geo) #4025
+# condense all_locality duplicates
+need_geo <- need_geo %>%
+  group_by(prov_type,lat_dd,long_dd,gps_det,all_locality) %>%
+  mutate(UID = paste0(UID,collapse="|;|"),
+         inst_short = paste0(inst_short,collapse=";"),
+         taxon_name_acc = paste0(taxon_name_acc,collapse=";")) %>%
+  ungroup() %>%
+  distinct(UID,inst_short,taxon_name_acc,prov_type,lat_dd,long_dd,gps_det,all_locality)
+nrow(need_geo) #2020
+head(need_geo)
+
+# write file
+write.csv(need_geo, file.path(main_dir,"outputs",
+  paste0("ExSitu_Need_Geolocation_", Sys.Date(), ".csv")),row.names = F)
 
 
+### !!!
+### ! NOW GO GEOLOCATE !
+### !!!
 
 
+################################################################################
+# 8. Add geolocated data, after manual geolocation
+################################################################################
 
+# read in all compiled ex situ data (exported above)
+exsitu <- read.csv(file.path(main_dir,"outputs",
+  "ExSitu_Compiled_2022-06-07.csv"), header = T, colClasses="character")
 
+# read in geolocated dataset
+geo_raw <- read.csv(file.path(main_dir,"outputs",
+  "ExSitu_Need_Geolocation_2022-06-07_Geolocated.csv"),
+  header = T, colClasses="character")
 
+# add geolocated coordinates to ex situ data
+  # separate UID row
+geolocated <- separate_rows(geo_raw, UID, sep="\\|;\\|")
+  # keep only edited rows (lat, long, gps_det) and
+  #   records that have gps_det filled in
+geolocated <- geolocated %>%
+  dplyr::select(UID,lat_dd,long_dd,gps_det) %>%
+  dplyr::filter(gps_det != "")
+head(geolocated)
+table(geolocated$gps_det)
+  # select geolocated rows in full dataset and remove cols we want to add
+exsitu_geo <- exsitu %>%
+  dplyr::filter(UID %in% geolocated$UID) %>%
+  dplyr::select(-lat_dd,-long_dd,-gps_det)
+nrow(exsitu_geo)
+  # add geolocation data
+exsitu_geo <- full_join(exsitu_geo,geolocated)
+  # join geolocated rows with rest of ex situ rows
+exsitu_no_geo <- exsitu %>%
+  dplyr::filter(!(UID %in% exsitu_geo$UID))
+nrow(exsitu_no_geo)
+exsitu_all <- rbind.fill(exsitu_no_geo,exsitu_geo)
+nrow(exsitu_all)
+table(exsitu_all$gps_det)
 
-
-
-
-
-
-
+# write new file
+write.csv(exsitu_all, file.path(main_dir,"outputs",
+  paste0("ExSitu_Compiled_Post-Geolocation_", Sys.Date(), ".csv")),
+  row.names = F)
 
 
 
@@ -1711,13 +1767,6 @@ nut_pts <- nut %>%
 
 
 
-
-
-
-
-
-
-
 ### !!!! ENDED HERE FOR NOW !!!!
 
 
@@ -1777,14 +1826,6 @@ head(as.data.frame(all_data13))
 # write file
 write.csv(all_data13, file.path(main_dir,"outputs",
   paste0("ExSitu_Compiled_Standardized_", Sys.Date(), ".csv")),row.names = F)
-
-
-
-
-
-
-
-
 
 
 ### NOT USING YET/CURRENTLY ###
@@ -1874,8 +1915,6 @@ if(!dir.exists(file.path(main_dir,"outputs","to_geolocate")))
 lapply(seq_along(sp_split), function(i) write.csv(sp_split[[i]],
   file.path(main_dir,"outputs","to_geolocate",
   paste0(names(sp_split)[[i]], ".csv")),row.names = F))
-
-
 
 
 ### Read geolocated CSVs back in and add geolocate info to rest of data
