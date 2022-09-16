@@ -1182,11 +1182,6 @@ table(all_data10$prov_type)
 #    H   H?    N   NG    U    W    Z
 # 2788  123   25 1945 1453 2808  155
 
-
-
-######################################################
-######## !!! SKIPPING THIS FOR NOW !!!################
-
 ##
 ## D) Collection year
 ##
@@ -1224,10 +1219,6 @@ all_data10$coll_year <- as.numeric(all_data10$coll_year)
 #  paste0("19",as.character(all_data10$coll_year[which(all_data10$coll_year < 100)]))
 #all_data10$coll_year <- as.numeric(all_data10$coll_year)
 sort(unique(all_data10$coll_year))
-
-######################################################
-######################################################
-
 
 ##
 ## E) Lineage number
@@ -1336,6 +1327,82 @@ head(need_geo)
 write.csv(need_geo, file.path(main_dir,"outputs",
   paste0("ExSitu_Need_Geolocation_", Sys.Date(), ".csv")),row.names = F)
 
+################################################################################
+# 8. (Optionally) Create file for GEOLocate
+################################################################################
+
+# read in data in again, if you didn't just run the whole script
+data_sel <- read.csv(file.path(main_dir,"outputs",
+  "ExSitu_Compiled_2022-06-07.csv"), header = T, colClasses="character")
+
+# add GEOLocate standard columns
+data_sel$correction.status <- NA
+data_sel$precision <- NA
+data_sel$error.polygon <- NA
+data_sel$multiple.results <- NA
+data_sel$uncertainty <- NA
+data_sel$latitude <- NA
+data_sel$longitude <- NA
+
+# records that may need geolocation
+#   (no lat-long, yes locality, prov type not H)
+need_geo <- data_sel %>%
+  dplyr::filter(is.na(lat_dd) & !is.na(all_locality) & prov_type != "H")
+nrow(need_geo) #4025
+# condense all_locality duplicates
+need_geo <- need_geo %>%
+  group_by(prov_type,lat_dd,long_dd,gps_det,all_locality) %>%
+  mutate(UID = paste0(UID,collapse="|;|"),
+         inst_short = paste0(inst_short,collapse=";"),
+         taxon_name_acc = paste0(taxon_name_acc,collapse=";")) %>%
+  ungroup() %>%
+  distinct(UID,inst_short,taxon_name_acc,prov_type,lat_dd,long_dd,gps_det,all_locality,.keep_all=T)
+nrow(need_geo) #2020
+head(need_geo)
+
+# update column name and order for GEOLocate requirements
+geolocate <- need_geo %>%
+  # rename to GEOLocate standard columns
+  rename(locality.string = all_locality) %>%
+  # order records alphabetically
+  arrange(taxon_name_acc,locality.string) %>%
+  # reorder columns
+  dplyr::select(
+    ## GeoLocate
+    locality.string,country,state,county,latitude,longitude,
+    correction.status,precision,error.polygon,multiple.results,uncertainty,
+    ## metadata to include also
+    taxon_name_acc,inst_short,prov_type,gps_det,UID)
+head(geolocate)
+
+### NOT NEEDED: read in some geolocation already done
+already_geo <- read.csv("Desktop/*work/ExSitu_Need_Geolocation_2022-06-07_WORKING.csv",
+  header = T, colClasses="character")
+  # join to file for geolocate
+geolocate <- geolocate %>% select(-gps_det)
+geolocate <- left_join(already_geo,geolocate)
+geolocate <- geolocate %>%
+  # replace NA with "" to make simpler to view in GEOLocate
+  replace(., is.na(.), "") %>%
+  # reorder columns
+    dplyr::select(
+    ## GeoLocate
+    locality.string,country,state,county,latitude,longitude,
+    correction.status,precision,error.polygon,multiple.results,uncertainty,
+    ## metadata to include also
+    inst_short,taxon_name_acc,prov_type,gps_det,geolocated_by,gps_quality,
+    gps_notes,UID)
+head(geolocate)
+###
+
+# remove dot in column names (replace with space) for GEOLocate
+names(geolocate) <- gsub(x = names(geolocate),pattern = "\\.",replacement = " ")
+str(geolocate)
+head(as.data.frame(geolocate),n=30)
+
+# write file
+write.csv(geolocate, file.path(main_dir,"outputs",
+  paste0("Exsitu_Need_Geolocation_GEOLocate_", Sys.Date(), ".csv")),row.names = F)
 
 ### !!!
 ### ! NOW GO GEOLOCATE !
