@@ -32,6 +32,8 @@ my.packages <- c('plyr','tidyverse','leaflet','rnaturalearth','rnaturalearthdata
 lapply(my.packages, require, character.only=TRUE)
 rm(my.packages)
 
+select <- dplyr::select
+
 ################################################################################
 # Set working directory
 ################################################################################
@@ -141,7 +143,7 @@ map_sp <- function(wild_dist,state_bound,gb_pts,gb_color,bg_pts,bg_color){
 
 # read in ex situ data from 2022 analysis (BG and genebank)
 exsitu <- read.csv(file.path(main_dir,"inputs","Ex situ",
-  "Copy of ExSitu_Compiled_Post-Geolocation_2022-06-10.csv"),
+  "ExSitu_Compiled_Post-Geolocation_2022-06-07.csv"),
   header = T)
 
 # read in target taxon list
