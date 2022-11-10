@@ -47,24 +47,23 @@ my.packages <- c('plyr','tidyverse','data.table','textclean',#,'housingData',,
   'rnaturalearth','rnaturalearthdata',
   #'sf','sp','tools',
   'countrycode',
-  'raster'
+  'raster','terra'
 )
 # install.packages (my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
   rm(my.packages)
+
+select <- dplyr::select
+rename <- dplyr::rename
+filter <- dplyr::filter
+mutate <- dplyr::mutate
 
 ################################################################################
 # Set working directory
 ################################################################################
 
 # Google Drive folder with occurrence point data
-main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/In situ - H - records"
-
-################################################################################
-# Load functions
-################################################################################
-
-
+main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
 
 ################################################################################
 ################################################################################
@@ -72,8 +71,20 @@ main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North Ameri
 ################################################################################
 
 # create folder for output data
-if(!dir.exists(file.path(main_dir,"inputs","standardized_occurrence")))
-  dir.create(file.path(main_dir,"inputs","standardized_occurrence"), recursive=T)
+if(!dir.exists(file.path(main_dir,"occurrence_points","standardized_occurrence_data")))
+  dir.create(file.path(main_dir,"occurrence_points","standardized_occurrence_data"), recursive=T)
+
+# read in target taxa list
+taxon_list <- read.csv(file.path(main_dir, "target_taxa_with_synonyms.csv"),
+  header = T, na.strings = c("","NA"),colClasses = "character")
+target_sp <- unique(taxon_list$genus_species)
+
+# exploring multicore...
+#https://nceas.github.io/oss-lessons/parallel-computing-in-r/parallel-computing-in-r.html
+library(doParallel)
+numCores <- detectCores()
+numCores #8
+registerDoParallel(numCores)
 
 ###############
 ### A) Global Biodiversity Information Facility (GBIF)
@@ -82,113 +93,136 @@ if(!dir.exists(file.path(main_dir,"inputs","standardized_occurrence")))
 # FIRST, download raw data at https://www.gbif.org/occurrence/search
 #   Query: Scientific name = added each genus individually;
 #          Location = Including coordinates
-#   Citation: GBIF.org (10 March 2022) GBIF Occurrence Download
-#             https://doi.org/10.15468/dl.dpn8ub
-# Rename the downloaded folder "GBIF"
+#   Citation for all data together:
+#     GBIF.org (17 October 2022) GBIF Occurrence Download https://doi.org/10.15468/dl.ngyqg7
+#   Citations for data when broken into 3 (alphabetically 5 & 5, then synonym genera):
+#     GBIF.org (17 October 2022) GBIF Occurrence Download https://doi.org/10.15468/dl.yhe3xt
+#     GBIF.org (17 October 2022) GBIF Occurrence Download https://doi.org/10.15468/dl.rqqhg3
+#     GBIF.org (17 October 2022) GBIF Occurrence Download https://doi.org/10.15468/dl.p5r8rr
+# Rename the downloaded folder "GBIF" and place in the "raw_occurrence_data" folder
 
-# read in data
-gbif_raw <- fread(file.path(main_dir,"inputs","GBIF",
-  "occurrence.txt"), quote="", na.strings="")
-nrow(gbif_raw) #3818886
+# read in data (this is how you do it all at once)
+#gbif_raw <- fread(file.path(main_dir,"occurrence_points","raw_occurrence_data",
+#  "GBIF","occurrence.txt"), quote="", na.strings="")
+#nrow(gbif_raw) #5214388
 
-### standardize column names
+# read in raw data and loop through each file:
+file_list <- list.files(path = file.path(main_dir,"occurrence_points",
+  "raw_occurrence_data","GBIF"), pattern = "occurrence", full.names = T)
+length(file_list) #3
 
-# remove genus-level records
-gbif_raw <- gbif_raw %>% dplyr::filter(taxonRank != "GENUS")
-  nrow(gbif_raw) #3701433
+for(i in 1:length(file_list)){
 
-# keep only necessary columns
-gbif_raw <- gbif_raw %>% dplyr::select(
-    # taxon name
-  "scientificName",
-  "family","genus","specificEpithet","taxonRank","infraspecificEpithet",
-    # taxon IDs
-  #"taxonID","speciesKey","taxonKey",
-    # taxon identification notes (GROUP)
-  "identificationRemarks","identificationVerificationStatus","identifiedBy",
-    "taxonRemarks",
-    # lat-long
-  "decimalLatitude","decimalLongitude","coordinateUncertaintyInMeters",
-    # record details
-  "basisOfRecord","year","gbifID","references",
-    #"identifier","occurrenceID","recordNumber",
-    # locality description
-  "locality","verbatimLocality","county","municipality","stateProvince",
-    "higherGeography","countryCode",
-    # location notes (GROUP)
-  "associatedTaxa","eventRemarks","fieldNotes","habitat","locationRemarks",
-    "occurrenceRemarks","occurrenceStatus",
-    # geolocation details (GROUP)
-  "georeferencedBy","georeferencedDate",
-    "georeferenceProtocol","georeferenceRemarks","georeferenceSources",
-    "georeferenceVerificationStatus",
-    # data source details
-  "datasetName","publisher","recordedBy","institutionCode",
-    "rightsHolder","license",#"collectionCode"
-    # other caveats
-  "establishmentMeans","informationWithheld","issue"
-  #"dataGeneralizations","hasGeospatialIssues"
-)
-gbif_raw$database <- "GBIF"
+  # read in data
+  gbif_raw <- fread(file_list[[i]], quote="", na.strings="")
+  print(nrow(gbif_raw))
 
-# rename columns
-gbif_raw <- gbif_raw %>% rename(nativeDatabaseID = gbifID)
+  ### standardize column names
 
-# combine a few similar columns
-gbif_raw <- gbif_raw %>% unite("taxonIdentificationNotes",
-    identificationRemarks:taxonRemarks,na.rm=T,remove=T,sep=" | ")
-  gbif_raw$taxonIdentificationNotes <-
-    gsub("^$",NA,gbif_raw$taxonIdentificationNotes)
-gbif_raw <- gbif_raw %>% unite("locationNotes",
-  associatedTaxa:occurrenceStatus,na.rm=T,remove=T,sep=" | ")
-  gbif_raw$locationNotes <- gsub("^$",NA,gbif_raw$locationNotes)
-gbif_raw <- gbif_raw %>% unite("geolocationNotes",
-  georeferencedBy:georeferenceVerificationStatus,na.rm=T,remove=T,sep=" | ")
-  gbif_raw$geolocationNotes <- gsub("^$",NA,gbif_raw$geolocationNotes)
-str(gbif_raw)
+  # remove genus-level records
+  gbif_raw <- gbif_raw %>% filter(taxonRank != "GENUS")
+  print(nrow(gbif_raw))
 
-# create taxon_name column
-gbif_raw$taxon_name <- NA
-unique(gbif_raw$taxonRank)
-subsp <- gbif_raw %>% filter(taxonRank == "SUBSPECIES")
-  subsp$taxon_name <- paste(subsp$genus,subsp$specificEpithet,"subsp.",
-    subsp$infraspecificEpithet)
-var <- gbif_raw %>% filter(taxonRank == "VARIETY")
-  var$taxon_name <- paste(var$genus,var$specificEpithet,"var.",
-    var$infraspecificEpithet)
-form <- gbif_raw %>% filter(taxonRank == "FORM")
-  form$taxon_name <- paste(form$genus,form$specificEpithet,"f.",
-    form$infraspecificEpithet)
-spp <- gbif_raw %>% filter(taxonRank == "SPECIES")
-  spp$taxon_name <- paste(spp$genus,spp$specificEpithet)
-gbif_raw <- Reduce(rbind,list(subsp,var,form,spp))
-  rm(subsp,var,form,spp)
-str(gbif_raw)
+  # keep only necessary columns
+  gbif_raw <- gbif_raw %>% select(
+      # taxon name
+    "scientificName",
+    "family","genus","specificEpithet","taxonRank","infraspecificEpithet",
+      # taxon IDs
+    #"taxonID","speciesKey","taxonKey",
+      # taxon identification notes (GROUP)
+    "identificationRemarks","identificationVerificationStatus","identifiedBy",
+      "taxonRemarks",
+      # lat-long
+    "decimalLatitude","decimalLongitude","coordinateUncertaintyInMeters",
+      # record details
+    "basisOfRecord","year","gbifID","references",
+      #"identifier","occurrenceID","recordNumber",
+      # locality description
+    "locality","verbatimLocality","county","municipality","stateProvince",
+      "higherGeography","countryCode",
+      # location notes (GROUP)
+    "associatedTaxa","eventRemarks","fieldNotes","habitat","locationRemarks",
+      "occurrenceRemarks","occurrenceStatus",
+      # geolocation details (GROUP)
+    "georeferencedBy","georeferencedDate",
+      "georeferenceProtocol","georeferenceRemarks","georeferenceSources",
+      "georeferenceVerificationStatus",
+      # data source details
+    "datasetName","publisher","recordedBy","institutionCode",
+      "rightsHolder","license",#"collectionCode"
+      # other caveats
+    "establishmentMeans","informationWithheld","issue"
+    #"dataGeneralizations","hasGeospatialIssues"
+  )
+  gbif_raw$database <- "GBIF"
 
-# fix hybrid names
-#unique(gbif_raw$taxon_name)
-gbif_raw$taxon_name <- mgsub(gbif_raw$taxon_name,
-  c("Asimina xnashii","Prunus xorthosepala","Carya xlecontei",
-    "Carya xludoviciana","Castanea xneglecta"),
-  c("Asimina +nashii","Prunus +orthosepala","Carya +lecontei",
-    "Carya +ludoviciana","Castanea +neglecta"))
+  # rename columns
+  gbif_raw <- gbif_raw %>% rename(nativeDatabaseID = gbifID)
 
-# create species_name column
-gbif_raw$species_name <- NA
-gbif_raw$species_name <- sapply(gbif_raw$taxon_name, function(x)
-  unlist(strsplit(x," var. | subsp. | f. "))[1])
-sort(unique(gbif_raw$species_name))
+  # combine a few similar columns
+  gbif_raw <- gbif_raw %>% unite("taxonIdentificationNotes",
+      identificationRemarks:taxonRemarks,na.rm=T,remove=T,sep=" | ")
+    gbif_raw$taxonIdentificationNotes <-
+      gsub("^$",NA,gbif_raw$taxonIdentificationNotes)
+  gbif_raw <- gbif_raw %>% unite("locationNotes",
+    associatedTaxa:occurrenceStatus,na.rm=T,remove=T,sep=" | ")
+    gbif_raw$locationNotes <- gsub("^$",NA,gbif_raw$locationNotes)
+  gbif_raw <- gbif_raw %>% unite("geolocationNotes",
+    georeferencedBy:georeferenceVerificationStatus,na.rm=T,remove=T,sep=" | ")
+    gbif_raw$geolocationNotes <- gsub("^$",NA,gbif_raw$geolocationNotes)
+  #str(gbif_raw)
 
-# write file
-write.csv(gbif_raw, file.path(main_dir,"inputs","standardized_occurrence",
-  "gbif.csv"),row.names=FALSE)
-#rm(gbif_raw)
+  # create taxon_name column
+  gbif_raw$taxon_name <- NA
+  unique(gbif_raw$taxonRank)
+  subsp <- gbif_raw %>% filter(taxonRank == "SUBSPECIES")
+    subsp$taxon_name <- paste(subsp$genus,subsp$specificEpithet,"subsp.",
+      subsp$infraspecificEpithet)
+  var <- gbif_raw %>% filter(taxonRank == "VARIETY")
+    var$taxon_name <- paste(var$genus,var$specificEpithet,"var.",
+      var$infraspecificEpithet)
+  form <- gbif_raw %>% filter(taxonRank == "FORM")
+    form$taxon_name <- paste(form$genus,form$specificEpithet,"f.",
+      form$infraspecificEpithet)
+  spp <- gbif_raw %>% filter(taxonRank == "SPECIES")
+    spp$taxon_name <- paste(spp$genus,spp$specificEpithet)
+  gbif_raw <- Reduce(rbind,list(subsp,var,form,spp))
+    rm(subsp,var,form,spp)
+  #str(gbif_raw)
+
+  # fix hybrid names
+  #unique(gbif_raw$taxon_name)
+  gbif_raw$taxon_name <- mgsub(gbif_raw$taxon_name,
+    c("Asimina xnashii","Prunus xorthosepala","Carya xlecontei",
+      "Carya xludoviciana","Castanea xneglecta"),
+    c("Asimina x nashii","Prunus x orthosepala","Carya x lecontei",
+      "Carya x ludoviciana","Castanea x neglecta"))
+
+  # create species_name column
+  gbif_raw$species_name <- NA
+  gbif_raw$species_name <- sapply(gbif_raw$taxon_name, function(x)
+    unlist(strsplit(x," var. | subsp. | f. "))[1])
+  #sort(unique(gbif_raw$species_name))
+
+  # keep only target species
+  gbif_raw <- gbif_raw %>%
+    filter(species_name %in% target_sp)
+  print(nrow(gbif_raw))
+
+  # write file
+  write.csv(gbif_raw, file.path(main_dir,"occurrence_points","standardized_occurrence_data",
+    paste0("gbif",i,".csv")),row.names=FALSE)
+  rm(gbif_raw)
+
+}
 
 ###############
 # B) Integrated Digitized Biocollections (iDigBio)
 ###############
 
 # FIRST, download raw data at https://www.idigbio.org/portal/search
+# Check the "Must have map point" checkbox
 # Click "Add a field" dropdown on the left and select "Genus"; type your
 #   target genus name into the "Genus" box
 # Click the "Download" tab, type in your email, and click the download button
@@ -200,20 +234,21 @@ write.csv(gbif_raw, file.path(main_dir,"inputs","standardized_occurrence",
 # Move all the folders you downloaded into a "iDigBio" folder
 # Pull the "occurrence_raw.csv" file out into the
 #   "iDigBio" folder and add appropriate genus name to the file name
+# Place iDigBio folder in the "raw_occurrence_data" folder
 
 # read in raw occurrence points
-file_list <- list.files(path = file.path(main_dir,"inputs","iDigBio"),
-  pattern = "occurrence_raw", full.names = T)
+file_list <- list.files(path = file.path(main_dir,"occurrence_points",
+  "raw_occurrence_data","iDigBio"), pattern = "occurrence_raw", full.names = T)
 file_dfs <- lapply(file_list, read.csv, colClasses = "character",
   na.strings=c("","NA"),strip.white=T,fileEncoding="UTF-8")
-length(file_dfs) #10
+length(file_dfs) #21
 
 # stack datasets to create one dataframe
 idigbio_raw <- data.frame()
 for(file in seq_along(file_dfs)){
   idigbio_raw <- rbind(idigbio_raw, file_dfs[[file]])
 };
-  nrow(idigbio_raw) #115885
+  nrow(idigbio_raw) #148158
   rm(file_list,file_dfs)
 # replace prefixes in column names
 colnames(idigbio_raw) <- gsub(x = colnames(idigbio_raw),
@@ -245,10 +280,10 @@ idigbio_raw$year <- as.numeric(idigbio_raw$year)
 idigbio_raw$year[which(idigbio_raw$year < 1500 |
   idigbio_raw$year > as.numeric(format(Sys.time(),"%Y")))] <- NA
   sort(unique(idigbio_raw$year))
-nrow(idigbio_raw) #60461
+nrow(idigbio_raw) #148158
 
 # keep only necessary columns
-idigbio_raw <- idigbio_raw %>% dplyr::select(
+idigbio_raw <- idigbio_raw %>% select(
     "scientificName","taxonIdentificationNotes",
     "family","genus","specificEpithet","taxonRank","infraspecificEpithet",
     "decimalLongitude","decimalLatitude","coordinateUncertaintyInMeters",
@@ -287,7 +322,7 @@ forma <- c("f.","fm.","form","Form","form.","forma","Forma","Subform")
 species <- c("espécie","sp.","specie","species","Species","spp.")
 hybrid <- c("×","x","X","?")
 #aff <- c("aff.")
-idigbio_raw <- idigbio_raw %>% dplyr::filter(!(taxonRank %in% genus))
+idigbio_raw <- idigbio_raw %>% filter(!(taxonRank %in% genus))
 subsp <- idigbio_raw %>% filter(taxonRank %in% subspecies)
   subsp$taxon_name <- paste(subsp$genus,subsp$specificEpithet,"subsp.",
     subsp$infraspecificEpithet)
@@ -300,18 +335,18 @@ form <- idigbio_raw %>% filter(taxonRank %in% forma)
 spp <- idigbio_raw %>% filter(taxonRank %in% species)
   spp$taxon_name <- paste(spp$genus,spp$specificEpithet)
 h <- idigbio_raw %>% filter(taxonRank %in% hybrid)
-  h$taxon_name <- paste0(h$genus," +",h$specificEpithet)
+  h$taxon_name <- paste0(h$genus," x ",h$specificEpithet)
 #a <- idigbio_raw %>% filter(taxonRank %in% aff)
 #  a$taxon_name <- paste(a$genus,"aff.",a$specificEpithet)
 idigbio_raw <- Reduce(rbind.fill,list(subsp,var,form,spp,h))#a
   rm(subsp,var,form,spp,h)#a
   str(idigbio_raw)
 # replace other hybrid signifiers
-idigbio_raw$taxon_name <- gsub(" × "," +",idigbio_raw$taxon_name)
-idigbio_raw$taxon_name <- gsub(" ×"," +",idigbio_raw$taxon_name)
-idigbio_raw$taxon_name <- gsub(" x "," +",idigbio_raw$taxon_name)
-idigbio_raw$taxon_name <- gsub(" \\?"," +",idigbio_raw$taxon_name)
-#sort(unique(idigbio_raw$taxon_name))
+idigbio_raw$taxon_name <- gsub(" ×"," x ",idigbio_raw$taxon_name)
+idigbio_raw$taxon_name <- gsub(" X "," x ",idigbio_raw$taxon_name)
+idigbio_raw$taxon_name <- gsub(" \\?"," x ",idigbio_raw$taxon_name)
+idigbio_raw$taxon_name <- str_squish(idigbio_raw$taxon_name)
+sort(unique(idigbio_raw$taxon_name))
 
 # create species_name column
 idigbio_raw$species_name <- NA
@@ -339,11 +374,17 @@ idigbio_raw <- idigbio_raw %>%
     "HumanObservation" = "HUMAN_OBSERVATION",
     "FossilSpecimen" = "FOSSIL_SPECIMEN",
     .missing = "UNKNOWN"))
+unique(idigbio_raw$basisOfRecord)
+
+# keep only target species
+idigbio_raw <- idigbio_raw %>%
+  filter(species_name %in% target_sp)
+nrow(idigbio_raw)
 
 # write file
-write.csv(idigbio_raw, file.path(main_dir,"inputs","standardized_occurrence",
-  "idigbio.csv"),row.names=FALSE)
-#rm(idigbio_raw)
+write.csv(idigbio_raw, file.path(main_dir, "occurrence_points",
+  "standardized_occurrence_data", "idigbio.csv"), row.names=FALSE)
+rm(idigbio_raw)
 
 ###############
 # C) IUCN Red List
@@ -357,20 +398,21 @@ write.csv(idigbio_raw, file.path(main_dir,"inputs","standardized_occurrence",
   #   or, alternatively, if you are just looking for a few
   #   taxa you can search for them individually
   # You should be able to add each genus/taxon to your search so only
-  #   only file needs to be exported
+  #   one file needs to be exported
   # In the far-left bar, scroll down and, if desired, check
   #   "Subspecies and varieties"
   # Click the grey "Download" button and select "Range data - Points (CSV)";
   #   then fill in the popup window information
   # Go to https://www.iucnredlist.org/account to find your query
   # Click "Download" next to your query
-  # Rename the folder you downloaded to "IUCN Red List"
+  # Rename the folder you downloaded to "IUCN Red List" and place in
+  #   the "raw_occurrence_data" folder
 
 # read in raw occurrence points
-redlist_raw <- read.csv(file.path(main_dir,"inputs","IUCN Red List",
-  "points_data.csv"), colClasses = "character", na.strings=c("", "NA"),
+redlist_raw <- read.csv(file.path(main_dir,"occurrence_points","raw_occurrence_data",
+  "IUCN_Red_List", "points_data.csv"), colClasses = "character", na.strings=c("", "NA"),
   strip.white=T, fileEncoding="UTF-8")
-nrow(redlist_raw) #47476
+nrow(redlist_raw) #70955
 
 ### standardize column names
 
@@ -388,7 +430,7 @@ redlist_raw$rightsHolder <- paste(redlist_raw$citation,redlist_raw$year)
 # standardize other columns
 redlist_raw <- redlist_raw %>%
 # keep only necessary columns
-  dplyr::select(taxon_name,binomial,tax_comm,event_year,
+  select(taxon_name,binomial,tax_comm,event_year,
     basisofrec,origin,latitude,longitude,dist_comm,source,
     compiler,rightsHolder,presence,subspecies) %>%
 # recode standard columns
@@ -417,11 +459,15 @@ redlist_raw <- redlist_raw %>%
     "Liturature" = "LITERATURE",
     "literature" = "LITERATURE",
     "Human_Observance" = "HUMAN_OBSERVATION",
+    "Human_observation" = "HUMAN_OBSERVATION",
+    "specimen" = "PRESERVED_SPECIMEN",
+    "Online data" = "UNKNOWN",
+    "Preserved_specimen" = "PRESERVED_SPECIMEN",
     .missing = "UNKNOWN")) %>%
 # remove "EXTINCT" rows
-  dplyr::filter(presence != "EXTINCT") %>%
+  filter(presence != "EXTINCT") %>%
 # rename columns
-  dplyr::rename(species_name = binomial,
+  rename(species_name = binomial,
                 taxonIdentificationNotes = tax_comm,
                 year = event_year,
                 basisOfRecord = basisofrec,
@@ -434,15 +480,22 @@ redlist_raw <- redlist_raw %>%
                 establishmentMeans = origin,
                 taxonRank = subspecies)
 redlist_raw$database <- "IUCN_RedList"
+# check everything has been standardized
+unique(redlist_raw$basisOfRecord)
 
 # check data
 head(redlist_raw)
-nrow(redlist_raw) #47468
+nrow(redlist_raw) #70947
+
+# keep only target species
+redlist_raw <- redlist_raw %>%
+  filter(species_name %in% target_sp)
+nrow(redlist_raw)
 
 # write file
-write.csv(redlist_raw, file.path(main_dir,"inputs","standardized_occurrence",
+write.csv(redlist_raw, file.path(main_dir,"occurrence_points","standardized_occurrence_data",
   "redlist.csv"),row.names=FALSE)
-#rm(redlist_raw)
+rm(redlist_raw)
 
 ###############
 # D) U.S. Herbaria Consortia (SERNEC, SEINet, etc.)
@@ -461,29 +514,29 @@ write.csv(redlist_raw, file.path(main_dir,"inputs","standardized_occurrence",
   #   leave other fields as-is
   # Click "Download Data"
   # Move the folder you downloaded into a "Herbaria Consortia" folder
-  ## QUERY for CWR: Scientific Name = Carya,Castanea,Corylus,Juglans,Pistacia,Asimina,Diospyros,Malus,Persea,Prunus
+  ## QUERY for CWR: Scientific Name = Asimina,Carya,Castanea,Corylus,Diospyros,Juglans,Malus,Persea,Pistacia,Prunus,Amygdalus,Annona,Celastrus,Cerasus,Emplectocladus,Fagus,Fagus-castanea,Hicoria,Hicorius,Laurocerasus,Laurus,Orchidocarpum,Padus,Pyrus,Tamala
 
 # read in raw occurrence points
-herb_raw <- read.csv(file.path(main_dir,"inputs","Herbaria Consortia",
-  "occurrences.csv"), colClasses = "character", na.strings=c("", "NA"),
-  strip.white=T, fileEncoding="UTF-8")
-nrow(herb_raw) #181539
+herb_raw <- read.csv(file.path(main_dir,"occurrence_points","raw_occurrence_data",
+  "Herbaria_Consortia","occurrences.csv"), colClasses = "character",
+  na.strings=c("", "NA"), strip.white=T, fileEncoding="UTF-8")
+nrow(herb_raw) #201998
 
 ### standardize column names
 
 # create taxon_name column
   # this method is not perfect; the taxonRank isn't always categoried correctly
 unique(herb_raw$taxonRank)
-subsp <- herb_raw %>% dplyr::filter(taxonRank == "Subspecies")
+subsp <- herb_raw %>% filter(taxonRank == "Subspecies")
 subsp$taxon_name <- paste(subsp$genus,subsp$specificEpithet,"subsp.",
   subsp$infraspecificEpithet)
-var <- herb_raw %>% dplyr::filter(taxonRank == "Variety")
+var <- herb_raw %>% filter(taxonRank == "Variety")
 var$taxon_name <- paste(var$genus,var$specificEpithet,"var.",
   var$infraspecificEpithet)
-form <- herb_raw %>% dplyr::filter(taxonRank == "Form")
+form <- herb_raw %>% filter(taxonRank == "Form")
 form$taxon_name <- paste(form$genus,form$specificEpithet,"f.",
   form$infraspecificEpithet)
-spp <- herb_raw %>% dplyr::filter(
+spp <- herb_raw %>% filter(
   is.na(taxonRank) | taxonRank == "Species" | taxonRank == "Subform")
   spp$taxon_name <- paste(spp$genus,spp$specificEpithet)
 herb_raw <- Reduce(rbind.fill,list(subsp,var,form,spp))
@@ -492,15 +545,14 @@ herb_raw$taxon_name[which(is.na(herb_raw$taxon_name))] <-
 herb_raw$taxon_name <- gsub("Ã\u0097","",herb_raw$taxon_name)
 herb_raw$taxon_name <- gsub("Ã«","e",herb_raw$taxon_name)
   #hybrid signifier replace
-herb_raw$taxon_name <- gsub(" x "," +",herb_raw$taxon_name)
-herb_raw$taxon_name <- gsub(" × "," +",herb_raw$taxon_name)
+herb_raw$taxon_name <- gsub(" × "," x ",herb_raw$taxon_name)
 herb_raw$taxon_name <- str_squish(herb_raw$taxon_name)
 sort(unique(herb_raw$taxon_name))
   # some records got removed if they are genus-level
-nrow(herb_raw) #176722
+nrow(herb_raw) #201961
 
 # keep only necessary columns
-herb_raw <- herb_raw %>% dplyr::select(
+herb_raw <- herb_raw %>% select(
   "taxon_name",
   "family","genus","specificEpithet","taxonRank","infraspecificEpithet",
     "scientificName",
@@ -547,14 +599,14 @@ herb_raw <- herb_raw %>%
     "PreservedSpecimen" = "PRESERVED_SPECIMEN",
     "Preserved specimen" = "PRESERVED_SPECIMEN",
     "Preserved Specimen" = "PRESERVED_SPECIMEN",
+    "preserved specimen" = "PRESERVED_SPECIMEN",
+    "Espécimen preservado" = "PRESERVED_SPECIMEN",
     "Physicalspecimen" = "PRESERVED_SPECIMEN",
     "preservedspecimen" = "PRESERVED_SPECIMEN",
     "preservedSpecimen" = "PRESERVED_SPECIMEN",
     "Observation" = "OBSERVATION",
     "LivingSpecimen" = "LIVING_SPECIMEN",
-    "Physical specimen" = "PRESERVED_SPECIMEN",
     "Ejemplar herborizado" = "PRESERVED_SPECIMEN",
-    "Physical Specimen" = "PRESERVED_SPECIMEN",
     "HumanObservation" = "HUMAN_OBSERVATION",
     .default = "UNKNOWN"))
   # year
@@ -571,13 +623,30 @@ sort(unique(herb_raw$year))
 sort(unique(herb_raw$establishmentMeans))
 herb_raw <- herb_raw %>%
   mutate(establishmentMeans = recode(establishmentMeans,
-    "Alien" = "INTRODUCED",
     "clonal" = "UNKNOWN",
     "Native" = "NATIVE",
     "Native." = "NATIVE",
     "native" = "NATIVE",
     "Wild." = "NATIVE",
+    "wild" = "NATIVE",
+    "wild collection" = "NATIVE",
     "Naturalized." = "INTRODUCED",
+    "Alien" = "INTRODUCED",
+    "Exotic" = "INTRODUCED",
+    "Escape from cultivation." = "INTRODUCED",
+    "Escaped from cultivation" = "INTRODUCED",
+    "established non-native" = "INTRODUCED",
+    "introduced" = "INTRODUCED",
+    "Introduced" = "INTRODUCED",
+    "Introduced; Volunteer" = "INTRODUCED",
+    "Introduced." = "INTRODUCED",
+    "Native/naturalizing" = "INTRODUCED",
+    "Naturalized?" = "INTRODUCED",
+    "Non-native" = "INTRODUCED",
+    "Non-native invasive" = "INTRODUCED",
+    "Non-native." = "INTRODUCED",
+    "Nonnative" = "INTRODUCED",
+    "Volunteer" = "INTRODUCED",
     "Uncertain" = "UNKNOWN",
     "wild caught" = "UNKNOWN",
     .default = "MANAGED"))
@@ -585,40 +654,84 @@ herb_raw <- herb_raw %>%
 # check data
 head(herb_raw)
 
+# keep only target species
+herb_raw <- herb_raw %>%
+  filter(species_name %in% target_sp)
+nrow(herb_raw)
+
 # write file
-write.csv(herb_raw, file.path(main_dir,"inputs","standardized_occurrence",
-  "herbaria_consortia.csv"),row.names=FALSE)
-#rm(herb_raw)
+write.csv(herb_raw, file.path(main_dir, "occurrence_points",
+  "standardized_occurrence_data", "herbaria_consortia.csv"), row.names=FALSE)
+rm(herb_raw)
 
 ###############
 # E) Ex situ points
 ###############
 
 # read in ex situ data, both dead (past) and current
-exsitu_raw1 <- read.csv(file.path(main_dir,"inputs","Ex situ",
-  "Copy of ExSitu_Dead_2022-05-25.csv"), colClasses = "character",
-  na.strings=c("", "NA"), strip.white=T, fileEncoding="UTF-8")
-nrow(exsitu_raw1) #936
-exsitu_raw2 <- read.csv(file.path(main_dir,"inputs","Ex situ",
-  "Copy of ExSitu_Compiled_2022-05-25.csv"), colClasses = "character",
-  na.strings=c("", "NA"), strip.white=T, fileEncoding="UTF-8")
-nrow(exsitu_raw2) #9297
+exsitu_dead <- read.csv(list.files(path = file.path(main_dir,"occurrence_points",
+  "raw_occurrence_data","Ex-situ"), pattern = "ExSitu_Dead", full.names = T),
+  colClasses = "character", na.strings=c("", "NA"), strip.white=T, fileEncoding="UTF-8")
+nrow(exsitu_dead) #936
+exsitu_postgeo <- read.csv(list.files(path = file.path(main_dir,"occurrence_points",
+  "raw_occurrence_data","Ex-situ"), pattern = "ExSitu_Compiled_Post-Geolocation",
+  full.names = T), colClasses = "character", na.strings=c("", "NA"), strip.white=T,
+  fileEncoding="UTF-8")
+nrow(exsitu_postgeo) #9817
+
 # join the datasets together
-exsitu_raw <- rbind.fill(exsitu_raw1,exsitu_raw2)
+exsitu_raw <- rbind.fill(exsitu_dead,exsitu_postgeo)
 head(exsitu_raw)
-nrow(exsitu_raw) #10233
+nrow(exsitu_raw) #10753
+
+# add centroid for county-level desciptions flagged during geolocating
+  # read in shapefile of U.S. EPA Level IV ecoregions
+    #https://catalog.data.gov/dataset/tiger-line-shapefile-current-nation-u-s-counties-and-equivalent-entities
+#us_counties <- vect(file.path(main_dir,"gis_layers",
+#  "tl_2021_us_county/tl_2021_us_county.shp"))
+#county_cent <- centroids(us_counties,inside=TRUE)
+#county_cent <- county_cent %>% mutate(
+#  rename(NAME = county,
+         ###THE STATE NAMES AREN"T HERE>>> THEY"RE JUST CODES :'''(((((( ))))))))
+  # get records that need a centroid added and be sure county and state are filled in
+#need_cent <- exsitu_raw %>%
+#  filter(gps_det == "County-level") %>%
+#  select(-lat_dd,long_dd)
+  # remove the words 'county' and 'parish'
+#need_cent$county <- gsub(" County","",need_cent$county)
+#need_cent$county <- gsub(" Country","",need_cent$county)
+#need_cent$county <- gsub(" Parish","",need_cent$county)
+#  need_cent$county
+  # add county and state when its not filled already:
+#fix_cty <- need_cent %>%
+#  filter(is.na(county) | is.na(state)) %>%
+#  select(UID,all_locality,county,state)
+#  fix_cty # see what is needed and edit table below:
+#add <- data.frame(county = c("Clay","Scotland","Ontario","Oscoda","Oscoda",
+#                             "Jackson","Jackson","Jackson","Jackson","Jackson",
+#                             "Clark","Clark"),
+#                  state = c("Arkansas","North Carolina","Canada","Michigan","Michigan",
+#                            "Minnesota","Minnesota","Minnesota","Minnesota","Minnesota",
+#                            "Arkansas","Arkansas"))
+#fix_cty <- fix_cty %>% select(UID)
+#fix_cty <- cbind(fix_cty,add)
+#need_cent[need_cent$UID %in% fix_cty$UID,]$county <- fix_cty$county
+#need_cent[need_cent$UID %in% fix_cty$UID,]$state <- fix_cty$state
+  # add centroid data
+#need_cent <-
+
 
 ### standardize column names
 
 # keep only necessary columns
 exsitu_raw <- exsitu_raw %>%
-  dplyr::select(
+  select(
     "taxon_name_acc","species_name_acc","taxon_name","taxon_verif",
     "coll_year","prov_type","num_indiv","lat_dd","long_dd",
     "uncertainty","flag","all_locality","locality","germ_type",
     "garden_loc","state","inst_short","UID","gps_det") %>%
 # rename columns
-  dplyr::rename(
+  rename(
     "taxon_name" = "taxon_name_acc",
     "species_name" = "species_name_acc",
     "scientificName" = "taxon_name",
@@ -635,7 +748,10 @@ exsitu_raw <- exsitu_raw %>%
     "stateProvince" = "state",
     "datasetName" = "inst_short",
     "nativeDatabaseID" = "UID",
-    "geolocationNotes" = "gps_det")
+    "geolocationNotes" = "gps_det") %>%
+  # fix random error in inst_short
+  mutate(datasetName = recode(datasetName,
+    "UCalifornia BGerkeley" = "UCaliforniaBGBerkeley"))
 exsitu_raw$database <- "Ex_situ"
 exsitu_raw$rightsHolder <- exsitu_raw$datasetName
 
@@ -655,9 +771,9 @@ sort(unique(exsitu_raw$species_name))
 head(exsitu_raw)
 
 # write file
-write.csv(exsitu_raw, file.path(main_dir,"inputs","standardized_occurrence",
-  "ex_situ.csv"),row.names=FALSE)
-#rm(exsitu_raw)
+write.csv(exsitu_raw, file.path(main_dir,"occurrence_points",
+  "standardized_occurrence_data","ex_situ.csv"),row.names=FALSE)
+rm(exsitu_raw)
 
 
 ################################################################################
@@ -666,25 +782,25 @@ write.csv(exsitu_raw, file.path(main_dir,"inputs","standardized_occurrence",
 ################################################################################
 
 # create folder for output data
-if(!dir.exists(file.path(main_dir,"outputs")))
-  dir.create(file.path(main_dir,"outputs"), recursive=T)
+if(!dir.exists(file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R")))
+  dir.create(file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R"), recursive=T)
 
 # read in raw datasets
-file_list <- list.files(file.path(main_dir,"inputs","standardized_occurrence"),
-  pattern = ".csv", full.names = T)
+file_list <- list.files(file.path(main_dir,"occurrence_points",
+  "standardized_occurrence_data"), pattern = ".csv", full.names = T)
 file_dfs <- lapply(file_list, read.csv, header = T, na.strings = c("","NA"),
   colClasses = "character")
-length(file_dfs) #5
+length(file_dfs) #7
 
 # stack all datasets using rbind.fill, which keeps non-matching columns
 #   and fills with NA; 'Reduce' iterates through list and merges with previous.
 # this may take a few minutes if you have lots of data
 all_data_raw <- Reduce(rbind.fill, file_dfs)
-  nrow(all_data_raw) #3996317
+  nrow(all_data_raw) #582673
   names(all_data_raw) #37
   table(all_data_raw$database)
-#     Ex_situ         GBIF      iDigBio IUCN_RedList  US_Herbaria
-#       10233      3701433        60461        47468       176722
+#     Ex_situ    GBIF           iDigBio      IUCN_RedList  US_Herbaria
+#      10753       349328        38256        22721       161615
 
 #add unique identifier
   nms <- names(all_data_raw)
@@ -702,26 +818,26 @@ all_data_raw <- all_data_raw %>% mutate(UID=paste0('id', sprintf("%08d",
 ################################################################################
 
 # read in target taxa list
-taxon_list <- read.csv(file.path(main_dir, "inputs", "target_taxa_with_syn.csv"),
+taxon_list <- read.csv(file.path(main_dir, "target_taxa_with_synonyms.csv"),
   header = T, na.strings = c("","NA"),colClasses = "character")
 taxon_list <- taxon_list %>%
   # if needed, add columns that separate out taxon name
   separate("taxon_name",c("genus","species","infra_rank","infra_name"),
     sep=" ",remove=F,fill="right") %>%
   # select necessary columns
-  dplyr::select(taxon_name,genus,species,infra_rank,
+  select(taxon_name,genus,species,infra_rank,
     infra_name,taxon_name_status,taxon_name_acc,species_name_acc)
 
 # full join to taxon list
-all_data_raw <- all_data_raw %>% dplyr::select(-genus)
+all_data_raw <- all_data_raw %>% select(-genus)
 all_data_raw <- left_join(all_data_raw,taxon_list)
 # join again just by species name if no taxon match
 need_match <- all_data_raw[which(is.na(all_data_raw$taxon_name_status)),]
-  nrow(need_match) #3493193
+  nrow(need_match) #23281
   # remove columns from first taxon name match
 need_match <- need_match[,1:(ncol(all_data_raw)-ncol(taxon_list)+1)]
   # rename column for matching
-need_match <- need_match %>% dplyr::rename(taxon_name_full = taxon_name)
+need_match <- need_match %>% rename(taxon_name_full = taxon_name)
 need_match$taxon_name <- need_match$species_name
   # new join
 need_match <- left_join(need_match,taxon_list)
@@ -729,13 +845,13 @@ need_match <- left_join(need_match,taxon_list)
 matched <- all_data_raw[which(!is.na(all_data_raw$taxon_name_status)),]
 matched$taxon_name_full <- matched$taxon_name
 all_data <- rbind(matched,need_match)
-  table(all_data$taxon_name_status) # Accepted: 517330   Synonym: 7859
+  table(all_data$taxon_name_status) # Accepted: 572711   Synonym: 9931
 
 # check names that got excluded.....
 still_no_match <- all_data[which(is.na(all_data$taxon_name_status)),]
-  nrow(still_no_match) #3471128
+  nrow(still_no_match) #4947760
 table(still_no_match$database)
-#sort(table(still_no_match$taxon_name))
+sort(table(still_no_match$taxon_name))
 ## write out file to review if needed
 #write.csv(still_no_match, file.path(main_dir, "outputs",
 #  paste0("no_taxon_match_", Sys.Date(), ".csv")),
@@ -743,12 +859,12 @@ table(still_no_match$database)
 
 # keep only rows for target taxa
 all_data <- all_data[which(!is.na(all_data$taxon_name_status)),]
-  nrow(all_data) #525189
+  nrow(all_data) #582642
 
 ### ! target taxa with no occurrence data:
 unique(taxon_list$taxon_name_acc)[
   !(unique(taxon_list$taxon_name_acc) %in% (unique(all_data$taxon_name_acc)))]
-# Prunus +orthosepala
+# Prunus x orthosepala
 
 #save(all_data, all_data_raw, file="all_data_to_clean.RData")
 #  rm(still_no_match, matched, need_match, all_data_raw)
@@ -804,12 +920,12 @@ all_data$decimalLatitude[zero] <- NA; all_data$decimalLongitude[zero] <- NA
   # flag non-numeric and not available coordinates and lat > 90, lat < -90,
   # lon > 180, and lon < -180
 coord_test <- cc_val(all_data, lon = "decimalLongitude",lat = "decimalLatitude",
-  value = "flagged", verbose = TRUE) #Flagged 117223 records.
+  value = "flagged", verbose = TRUE) #Flagged 121093 records.
   # try switching lat and long for invalid points and check validity again
 all_data[!coord_test,c("decimalLatitude","decimalLongitude")] <-
   all_data[!coord_test,c("decimalLongitude","decimalLatitude")]
 coord_test <- cc_val(all_data, lon = "decimalLongitude",lat = "decimalLatitude",
-  value = "flagged", verbose = TRUE) #Flagged 117223 records.
+  value = "flagged", verbose = TRUE) #Flagged 121093 records.
   ## mark these as flagged
 all_data$flag <- NA
 all_data[!coord_test,]$flag <- paste0("Coordinates invalid")
@@ -832,16 +948,16 @@ locality_pts <- all_data %>% filter(!is.na(localityDescription) &
     !is.na(flag)) %>%
   arrange(desc(year)) %>%
   distinct(taxon_name_acc,localityDescription,.keep_all=T)
-nrow(locality_pts) #77485
+nrow(locality_pts) #82147
 
 # move forward with subset of points that do have lat and long
 geo_pts <- all_data %>%
   filter(is.na(flag)) #%>%
-  #dplyr::select(-localityDescription)
-  nrow(geo_pts) #407966
+  #select(-localityDescription)
+  nrow(geo_pts) #461549
 
 # check if points are in water, mark, and separate out
-world_polygons <- ne_countries(type = 'countries', scale = 'medium')
+world_polygons <- ne_countries(type = 'countries', scale = 'large')
 # add buffer; 0.01 dd = ~ 0.4 to 1 km depending on location
 world_buff <- buffer(world_polygons, width=0.04, dissolve=F)
   ## another option is data(buffland)
@@ -849,31 +965,32 @@ world_buff <- buffer(world_polygons, width=0.04, dissolve=F)
 geo_pts[is.na(map.where(world_buff, geo_pts$decimalLongitude,
   geo_pts$decimalLatitude)),]$flag <- paste("Coordinates in water",sep="; ")
 water_pts <- geo_pts %>% filter(grepl("water",flag))
-  nrow(water_pts) #1524
+  nrow(water_pts) #1524 --> there are ~7,000 now... I think this is due to the layer
+                  # keeping in to see what's happening
 table(water_pts$database)
 #     Ex_situ         GBIF      iDigBio IUCN_RedList  US_Herbaria
 #          88         1072          150           68          146
 
 # add water points to locality points if they have locality data
-locality_pts_add <- water_pts %>% filter(!is.na(localityDescription)) %>%
-  arrange(desc(year)) %>%
-  distinct(taxon_name_acc,localityDescription,.keep_all=T)
-nrow(locality_pts_add) #1046
-locality_pts <- rbind(locality_pts,locality_pts_add)
+#locality_pts_add <- water_pts %>% filter(!is.na(localityDescription)) %>%
+#  arrange(desc(year)) %>%
+#  distinct(taxon_name_acc,localityDescription,.keep_all=T)
+#nrow(locality_pts_add) #1046
+#locality_pts <- rbind(locality_pts,locality_pts_add)
 # write file of locality-only points
-table(locality_pts$database)
+#table(locality_pts$database)
 #    Ex_situ        GBIF     iDigBio US_Herbaria
 #       4193         771          78       73489
-write.csv(locality_pts, file.path(main_dir,"outputs",
-  paste0("need_geolocation_", Sys.Date(), ".csv")),
-  row.names = F)
+#write.csv(locality_pts, file.path(main_dir,"outputs",
+#  paste0("need_geolocation_", Sys.Date(), ".csv")),
+#  row.names = F)
 
 # create final subset of geolocated points which are on land
-geo_pts <- geo_pts %>% filter(!grepl("Coordinates in water",flag))
-nrow(geo_pts) #406442
-table(geo_pts$database)
+#geo_pts <- geo_pts %>% filter(!grepl("Coordinates in water",flag))
+#nrow(geo_pts) #450866
+#table(geo_pts$database)
 #     Ex_situ         GBIF      iDigBio IUCN_RedList  US_Herbaria
-#        1175       304359        36198        18945        45765
+#        1357       340888        37339        22246        49036
 # can write a file just to look it over
 #write.csv(geo_pts, file.path(main_dir,"outputs","are_geolocated.csv"),
 #  row.names = F)
@@ -969,7 +1086,7 @@ geo_pts2 <- geo_pts %>%
   mutate(all_source_databases = paste(unique(database), collapse = ',')) %>%
   distinct(taxon_name_acc,lat_round,long_round,.keep_all=T) %>%
   ungroup() %>%
-  dplyr::select(-flag)
+  select(-flag)
 
 # add ex situ data back in
 geo_pts2 <- geo_pts2 %>%
@@ -980,7 +1097,7 @@ ex_situ_add <- ex_situ %>% arrange(UID) %>%
   select(basisOfRecord,establishmentMeans)
 dups <- unique(geo_pts2$UID)
 ex_situ <- ex_situ %>%
-  dplyr::select(-flag) %>%
+  select(-flag) %>%
   filter(!(UID %in% dups))
 geo_pts2 <- rbind(geo_pts2,ex_situ)
 geo_pts2 <- geo_pts2 %>% arrange(UID)
@@ -1002,13 +1119,13 @@ geo_pts2 <- geo_pts2 %>% select(all_of(h.nms2))
 
 # take a look
 head(geo_pts2)
-nrow(geo_pts2) #84906
+nrow(geo_pts2) #91005
 table(geo_pts2$all_source_databases)
 table(geo_pts2$database)
 #        GBIF  US_Herbaria      iDigBio IUCN_RedList      Ex_situ
-#       71587         8996          945         2203         1175 [305 before adding all back in]
+#       78168         8274          969         2237         1357
 
-write.csv(geo_pts2, file.path(main_dir,"outputs",
+write.csv(geo_pts2, file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R",
   paste0("Occurrences_Compiled_", Sys.Date(), ".csv")),row.names = F)
 
 ################################################################################
@@ -1030,7 +1147,7 @@ files <- list(count_geo,count_locality)#count_water,
 summary <- setorder(Reduce(full_join, files),num_latlong_records,na.last=F)
 head(summary)
   # write file
-write.csv(summary, file.path(main_dir,"outputs",
+write.csv(summary, file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R",
   paste0("occurrence_point_count_per_taxon_", Sys.Date(), ".csv")),row.names = F)
 as.data.frame(summary)
 
@@ -1051,10 +1168,11 @@ sp_split <- split(geo_pts2, as.factor(geo_pts2$taxon_name_acc))
 names(sp_split) <- gsub(" ","_",names(sp_split))
 
 # write files
-if(!dir.exists(file.path(main_dir,"outputs","taxon_raw_points")))
-  dir.create(file.path(main_dir,"outputs","taxon_raw_points"), recursive=T)
+if(!dir.exists(file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R","taxon_raw_points")))
+  dir.create(file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R","taxon_raw_points"),
+  recursive=T)
 lapply(seq_along(sp_split), function(i) write.csv(sp_split[[i]],
-  file.path(main_dir,"outputs","taxon_raw_points",
+  file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R","taxon_raw_points",
   paste0(names(sp_split)[[i]], ".csv")),row.names = F))
 
 #unlink("all_data_to_clean.RData")
