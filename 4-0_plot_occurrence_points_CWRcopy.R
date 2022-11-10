@@ -51,7 +51,6 @@ lapply(my.packages, require, character.only=TRUE)
 #main_dir <- "/Volumes/GoogleDrive/My Drive/Conservation Consortia/R Training/occurrence_points"
 #script_dir <- "./Documents/GitHub/OccurrencePoints/scripts"
 main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/In situ - H - records"
-poly_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/IMLS MFA/occurrence_points"
 
 # or use 0-1_set_workingdirectory.R script:
 #source("./Documents/GitHub/OccurrencePoints/scripts/0-1_set_workingdirectory.R")
