@@ -1,16 +1,17 @@
 
-
+################################################################################
 ##Load package
-#install.packages("GapAnalysis")
+install.packages("GapAnalysis")
 library(GapAnalysis)
 
 ##Load additional suggested packages
-my.packages <- c('dplyr', 'sp', 'tmap', 'data.table', 'sf', 'methods', 'geosphere', 'data.table',
-'fasterize', 'rmarkdown', 'knitr', 'rgdal', 'rgeos', 'kableExtra', 'DT')
+my.packages <- c('dplyr', 'sp', 'tmap', 'data.table', 'sf', 'methods',
+  'geosphere', 'data.table','fasterize', 'rmarkdown', 'knitr', 'rgdal',
+  'rgeos', 'kableExtra', 'DT')
 lapply(my.packages, require, character.only=TRUE)
 
 ## assign main working directory
-main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis"
+main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
 
 ### TESTING WITH JUGLANS CALIFORNICA & J. HINDSII
 
@@ -19,10 +20,12 @@ main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North Ameri
 #str(CucurbitaData)
   # read in data
 JcalData <- read.csv(file.path(
-  main_dir,"In situ - H - records/outputs/taxon_edited_points/Juglans_californica.csv"))
+  main_dir,"occurrence_points/OUTPUTS_FROM_R/taxon_edited_points/Juglans_californica.csv"))
 JhinData <- read.csv(file.path(
-  main_dir,"In situ - H - records/outputs/taxon_edited_points/Juglans_hindsii.csv"))
-JData <- rbind(JcalData,JhinData)
+  main_dir,"occurrence_points/OUTPUTS_FROM_R/taxon_edited_points/Juglans_hindsii.csv"))
+JmajData <- read.csv(file.path(
+  main_dir,"occurrence_points/OUTPUTS_FROM_R/taxon_edited_points/Juglans_major.csv"))
+JData <- rbind(JmajData,JcalData,JhinData)
 str(JData)
   # edit to match format needed for GapAnalysis
 JData <- JData %>%
@@ -48,10 +51,12 @@ speciesList
 #str(CucurbitaRasters)
   # read in SDM output rasters and stack
 JcalRaster <- raster(file.path(
-  main_dir,"In situ - H - records/inputs/PNAS_2020_SDMs/Juglans_californica_PNAS_2020_SDM.tif"))
+  main_dir,"gis_layers/PNAS_2020_SDMs/Juglans_californica_PNAS_2020_SDM.tif"))
 JhinRaster <- raster(file.path(
-  main_dir,"In situ - H - records/inputs/PNAS_2020_SDMs/Juglans_hindsii_PNAS_2020_SDM.tif"))
-JRasters <- list(JcalRaster,JhinRaster)
+  main_dir,"gis_layers/PNAS_2020_SDMs/Juglans_hindsii_PNAS_2020_SDM.tif"))
+JmajRaster <- raster(file.path(
+  main_dir,"gis_layers/PNAS_2020_SDMs/Juglans_major_PNAS_2020_SDM.tif"))
+JRasters <- list(JmajRaster,JcalRaster,JhinRaster)
 str(JRasters)
 
 ##Obtaining protected areas raster
@@ -89,6 +94,25 @@ str(indicator_df)
 
 ##Generate summary HTML file with all result
 GetDatasets()
+  # look at resolutions
+  res(ProtectedAreas) # 0.1666667 0.1666667
+  res(JcalRaster) # 0.04166667 0.04166667
+
+# read in PA file from Dataverse:
+#   https://dataverse.harvard.edu/dataverse/GapAnalysis
+ProtectedAreas <- raster(file.path(
+  main_dir,"gis_layers/wdpa_reclass.tif"))
+  # check resolution
+  res(ProtectedAreas) # 0.04166667 0.04166667
+
+  #####Adding test data for running summaryHTML.Rmd separately
+  Sl <- speciesList
+  Od <- JData
+  Rl <- JRasters
+  Buffer_distance <- 50000
+  Ecoregions_shp <- ecoregions
+  Pro_areas <- ProtectedAreas
+
 summaryHTML_file <- SummaryHTML(Species_list=speciesList,
                                 Occurrence_data=JData,
                                 Raster_list=JRasters,
