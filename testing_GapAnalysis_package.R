@@ -1,7 +1,7 @@
 
 ################################################################################
 ##Load package
-install.packages("GapAnalysis")
+#install.packages("GapAnalysis")
 library(GapAnalysis)
 
 ##Load additional suggested packages
@@ -29,14 +29,14 @@ JData <- rbind(JmajData,JcalData,JhinData)
 str(JData)
   # edit to match format needed for GapAnalysis
 JData <- JData %>%
-  mutate(database = recode(database,
+  dplyr::mutate(database = recode(database,
                            "Ex_situ" = "G",
                            .default = "H")) %>%
-  rename(species = taxon_name_acc,
+  dplyr::rename(species = taxon_name_acc,
          latitude = decimalLatitude,
          longitude = decimalLongitude,
          type = database) %>%
-  select(species,latitude,longitude,type)
+  dplyr::select(species,latitude,longitude,type)
 JData$species <- gsub(" ","_",JData$species)
 str(JData)
 
