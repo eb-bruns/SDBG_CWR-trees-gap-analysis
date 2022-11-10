@@ -47,8 +47,9 @@ my.packages <- c(#"raster",
   "tidyverse", #"housingData", "maps",
   "data.table",
   "textclean",
-  "CoordinateCleaner", "countrycode"#, "usmap",
+  "CoordinateCleaner", "countrycode",#, "usmap",
   #"RColorBrewer", "leaflet"
+  "rnaturalearth","rnaturalearthhires"
 )
 #install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
@@ -61,8 +62,7 @@ lapply(my.packages, require, character.only=TRUE)
 # either set manually:
 #main_dir <- "/Volumes/GoogleDrive/My Drive/Conservation Consortia/R Training/occurrence_points"
 #script_dir <- "./Documents/GitHub/OccurrencePoints/scripts"
-main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/In situ - H - records"
-poly_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/IMLS MFA/occurrence_points"
+main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
 
 # or use 0-1_set_workingdirectory.R script:
 #source("./Documents/GitHub/OccurrencePoints/scripts/0-1_set_workingdirectory.R")
@@ -78,16 +78,16 @@ poly_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/IMLS MFA/o
 ################################################################################
 
 # read in taxa list
-taxon_list_orig <- read.csv(file.path(main_dir,"inputs",
-  "target_taxa_with_syn.csv"), header = T, na.strings=c("","NA"),
+taxon_list_orig <- read.csv(file.path(main_dir,
+  "target_taxa_with_synonyms.csv"), header = T, na.strings=c("","NA"),
   colClasses="character")
 # keep only taxa with accepted species name
 taxon_list_orig <- taxon_list_orig %>% filter(taxon_name_status=="Accepted")
-  nrow(taxon_list_orig) #90
+  nrow(taxon_list_orig) #95
 
 # create new folder if not already present
-if(!dir.exists(file.path(main_dir,"inputs","known_distribution")))
-  dir.create(file.path(main_dir,"inputs","known_distribution"),
+if(!dir.exists(file.path(main_dir,"taxa_metadata")))
+  dir.create(file.path(main_dir,"taxa_metadata"),
   recursive=T)
 
 ### GlobalTreeSearch (GTS)
@@ -101,7 +101,7 @@ if(!dir.exists(file.path(main_dir,"inputs","known_distribution")))
   #   other genera
   # Move all downloads to "inputs/known_distribution" folder
 # read in and compile GlobalTreeSearch data
-file_list <- list.files(path = file.path(main_dir,"inputs","known_distribution"),
+file_list <- list.files(path = file.path(main_dir,"taxa_metadata"),
   pattern = "globaltreesearch_results", full.names = T)
 file_dfs <- lapply(file_list, read.csv, colClasses = "character",
   na.strings=c("","NA"),strip.white=T)
@@ -173,7 +173,7 @@ no_match
   #   Move downloaded folder to "occurrence_points/inputs/known_distribution"
 
 # read in downloaded IUCN RL data for country-level species distribution
-countries <- read.csv(file.path(main_dir,"inputs","known_distribution",
+countries <- read.csv(file.path(main_dir,"taxa_metadata",
     "redlist_species_data","countries.csv"),
     colClasses = "character",na.strings=c("","NA"),strip.white=T)
 # condense output so its one entry per species
@@ -259,7 +259,7 @@ native_dist$all_native_dist_iso2 <- gsub(", ","; ",native_dist$all_native_dist_i
 head(native_dist)
 
 # write taxon list with GTS and RL distribution information
-write.csv(native_dist, file.path(main_dir,"inputs","known_distribution",
+write.csv(native_dist, file.path(main_dir,"taxa_metadata",
     "target_taxa_with_native_dist.csv"),row.names=F)
 
 
@@ -271,29 +271,30 @@ write.csv(native_dist, file.path(main_dir,"inputs","known_distribution",
 # 1. Read in data
 ################################################################################
 
-# bring in polygon (load from saved .RData file)
-load(file.path(poly_dir, "inputs", "gis_data", "admin_shapefiles.RData"))
 # define projection
 wgs_proj <- sp::CRS(SRS_string="EPSG:4326")
+
+# get urban areas layer and transform projection
+urban.poly <- rnaturalearth::ne_download(scale = "large", type = "urban_areas")
 urban.poly <- spTransform(urban.poly,wgs_proj)
 
 # read in country-level native distribution data
-native_dist <- read.csv(file.path(main_dir,"inputs","known_distribution",
+native_dist <- read.csv(file.path(main_dir,"taxa_metadata",
   "target_taxa_with_native_dist.csv"), header = T, na.strings = c("","NA"),
   colClasses = "character")
 
 # create new folder for revised points, if not already existing
 out.fld.nm <- "taxon_edited_points"
-if(dir.exists(file.path(main_dir, "outputs", out.fld.nm)))
+if(dir.exists(file.path(main_dir, "occurrence_points","OUTPUTS_FROM_R", out.fld.nm)))
   print("directory already created") else dir.create(file.path(main_dir,
-    "outputs", out.fld.nm), recursive=TRUE)
+     "occurrence_points","OUTPUTS_FROM_R", out.fld.nm), recursive=TRUE)
 
 ################################################################################
 # 2. Iterate through species files and flag suspect points
 ################################################################################
 
 # list of species files to iterate
-all.spp.files <- list.files(path=file.path(main_dir, "outputs",
+all.spp.files <- list.files(path=file.path(main_dir, "occurrence_points","OUTPUTS_FROM_R",
   "taxon_raw_points"), ignore.case=FALSE, full.names=FALSE, recursive=TRUE)
 #all.spp.files <- all.spp.files[1:20]
 spp_list <- file_path_sans_ext(all.spp.files)
@@ -329,7 +330,7 @@ for (i in 1:length(spp_list)){
   f.nm <- spp_list[i]
 
   # bring in records
-  eo.df <- read.csv(file.path(main_dir, "outputs", "taxon_raw_points",
+  eo.df <- read.csv(file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R","taxon_raw_points",
     paste0(f.nm, ".csv")))
 
   # create SpatialPointsDataFrame for species
@@ -451,12 +452,12 @@ for (i in 1:length(spp_list)){
   summary_tbl[i,] <- summary_add
 
   # WRITE NEW FILE
-  write.csv(eo.post3, file.path(main_dir, "outputs", out.fld.nm,
+  write.csv(eo.post3, file.path(main_dir, "occurrence_points","OUTPUTS_FROM_R",out.fld.nm,
     paste0(f.nm, ".csv")), row.names=FALSE)
 
   cat("Ending ", f.nm, ", ", i, " of ", length(spp_list), ".\n\n", sep="")
 }
 
 # write summary table
-write.csv(summary_tbl, file.path(main_dir,"outputs",
+write.csv(summary_tbl, file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R",
   paste0("summary_of_output_points_", Sys.Date(), ".csv")),row.names = F)
