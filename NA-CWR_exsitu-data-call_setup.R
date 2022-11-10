@@ -37,7 +37,7 @@ main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/BGCI-US/CWR Nor
 # Load data
 ###############################################################################
 
-# read in target species list
+# read in target taxa list
 target_sp <- read.csv(file.path(main_dir,
   "North America CWR taxa list with synonyms.csv"),
   header = T, na.strings=c("","NA"), colClasses="character")
