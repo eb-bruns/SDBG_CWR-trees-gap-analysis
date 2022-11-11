@@ -5,53 +5,57 @@
 ### Author: Emily Beckman Bruns
 ### Funding:
 # Base script was funded by the Institude of Museum and Library Services
-#   (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
+#   (IMLS MFA program grant #MA-30-18-0273-18 to The Morton Arboretum).
 # Moderate edits were added with funding from a cooperative agreement
 #   between the United States Botanic Garden and San Diego Botanic Garden
 #   (subcontracted to The Morton Arboretum), with support from
 #   Botanic Gardens Conservation International U.S.
 
 ### Creation date: 26 May 2022
-### Last updated: 03 June 2022
+### Last updated: 10 November 2022
 
-### R version 4.1.3
+### R version 4.2.2
 
 ### DESCRIPTION:
   #
-  # This script compiles in situ occurrence point data downloaded manually,
-  #   in addition to wild collection locations from ex situ data.
-  #   We remove any rows for species not in target list, standardize some
-  #   key columns, and write a CSV of lat-long points for each species.
+  # This script compiles in situ occurrence point data and ex situ (genebank
+  # and botanical garden) data. We remove any rows for species not in our
+  # target taxa list, standardize some key columns, and write two CSVs of
+  # records: one with all records and one only with records that are geolocated
+  # (include a latitude and longitude).
   #
 
-### DATA IN:
+### INPUTS:
+  # target_taxa_with_synonyms.csv
   #
 
-### DATA OUT:
+### OUTPUTS:
   #
-  # folder (taxon_raw_points) with CSV of raw occurrence data for each target
-  #   species (e.g., Malus_angustifolia.csv)
+  # folder (taxon_raw_records) with CSV of raw data for each target
+  # taxon (e.g., Malus_angustifolia.csv)
+  #
+  # folder (taxon_geo_points) with CSV of geolocated data for each target
+  # taxon (e.g., Malus_angustifolia.csv)
+  #
   # CSV of all occurrence points without lat-long but with locality description
   #   (need_geolocation.csv)
-  # Summary table with one row for each target species, listing number of
-  #   points with valid a lat-long and number of points with locality
-  #   description only (occurrence_point_count_per_sp.csv)
+  #
+  # summary table (occurrence_record_summary.csv) with one row for each
+  # target taxon, listing total number of records, number of records with valid
+  # lat-long, and number of records with locality description only
   #
 
 ################################################################################
 # Load libraries
 ################################################################################
 
-my.packages <- c('plyr','tidyverse','data.table','textclean',#,'housingData',,
-  'CoordinateCleaner','maps',
-  'rnaturalearth','rnaturalearthdata',
-  #'sf','sp','tools',
-  'countrycode',
-  'raster','terra'
+my.packages <- c('plyr', 'tidyverse', 'data.table', 'textclean',
+  'CoordinateCleaner', 'maps', 'rnaturalearth', 'rnaturalearthdata',
+  'countrycode', 'raster', 'terra'
 )
 # install.packages (my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
-  rm(my.packages)
+rm(my.packages)
 
 select <- dplyr::select
 rename <- dplyr::rename
@@ -62,7 +66,8 @@ mutate <- dplyr::mutate
 # Set working directory
 ################################################################################
 
-# Google Drive folder with occurrence point data
+# set manually to wherever you want
+#   mine is a Google Drive folder
 main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
 
 ################################################################################
@@ -70,9 +75,11 @@ main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North Ameri
 # 1. Standardize occurrence data columns from different sources
 ################################################################################
 
-# create folder for output data
-if(!dir.exists(file.path(main_dir,"occurrence_points","standardized_occurrence_data")))
-  dir.create(file.path(main_dir,"occurrence_points","standardized_occurrence_data"), recursive=T)
+# create folders for output data
+if(!dir.exists(file.path(main_dir,"occurrence_data")))
+  dir.create(file.path(main_dir,"occurrence_data"), recursive=T)
+if(!dir.exists(file.path(main_dir,"occurrence_data","standardized_occurrence_data")))
+  dir.create(file.path(main_dir,"occurrence_data","standardized_occurrence_data"), recursive=T)
 
 # read in target taxa list
 taxon_list <- read.csv(file.path(main_dir, "target_taxa_with_synonyms.csv"),
@@ -81,10 +88,10 @@ target_sp <- unique(taxon_list$genus_species)
 
 # exploring multicore...
 #https://nceas.github.io/oss-lessons/parallel-computing-in-r/parallel-computing-in-r.html
-library(doParallel)
-numCores <- detectCores()
-numCores #8
-registerDoParallel(numCores)
+#library(doParallel)
+#numCores <- detectCores()
+#numCores #8
+#registerDoParallel(numCores)
 
 ###############
 ### A) Global Biodiversity Information Facility (GBIF)
@@ -1148,7 +1155,7 @@ summary <- setorder(Reduce(full_join, files),num_latlong_records,na.last=F)
 head(summary)
   # write file
 write.csv(summary, file.path(main_dir,"occurrence_points","OUTPUTS_FROM_R",
-  paste0("occurrence_point_count_per_taxon_", Sys.Date(), ".csv")),row.names = F)
+  paste0("occurrence_record_summary_", Sys.Date(), ".csv")),row.names = F)
 as.data.frame(summary)
 
 ## can save data out to a file so don't have to rerun

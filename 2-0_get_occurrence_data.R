@@ -1,48 +1,53 @@
 ################################################################################
 
-## 2-0_get_occurrence_points.R
-### Authors: Emily Beckman & Shannon Still ### Date: 02/05/2020
+### 2-0_get_occurrence_data.R
+### Authors: Emily Beckman & Shannon M Still
+### Creation Date: 02/05/2020
 
 ### DESCRIPTION:
   # This script provides instructions and code chunks for downloading and
-  #   standardizing wild occurrence points from:
+  # standardizing wild occurrence points from:
     # GLOBAL DATABASES (though all likely have U.S. bias?)
       # Global Biodiversity Information Facility (GBIF)
       # Integrated Digitized Biocollections (iDigBio)
       # IUCN Red List of Threatened Species
-      # U.S. Herbarium Consortia (SERNEC, SEINet, etc.)
+      # North American herbarium consortia (SERNEC, SEINet, etc.)
       # Botanical Information and Ecology Network (BIEN)
-    # NATIONAL DATABASES
+    # U.S. NATIONAL DATABASES
       # Forest Inventory and Analysis (FIA) Program of the USDA Forest Service
       # Biodiversity Information Serving Our Nation (BISON), USGS
-  ## NOTE: Not all data from these sources are reliable. The aim of this
-  #        script is to get all easily-downloadable occurrence data, which
-  #        can then be sorted and vetted for the user's specific purposes.
-  ## NOTE: You can add other occurrence point data (e.g., expert comment,
-  #        NatureServe, floras, USDA PLANTS, BONAP, IUCN Red List, private
-  #        sources, etc.) by standardizing column names and formatting to match
-  #        the schema in the "Renaming Columns" tab:
-  #        https://docs.google.com/spreadsheets/d/1dllfDXaZBLvB1AsrY1wDS-sPceKAdOY681bqUbfoQAs/edit?usp=sharing
-  #        then save as CSV and place in "inputs/compiled_occurrence" folder.
+  ## NOTE #1: Not all data from these sources are reliable. The aim of this
+  #  script is to get all easily-downloadable occurrence data, which
+  #  can then be sorted and vetted for the user's specific purposes.
+  ## NOTE #2: You can add other occurrence point data (e.g., expert comment,
+  #  NatureServe, floras, USDA PLANTS, BONAP, IUCN Red List, private
+  #  sources, etc.) by standardizing column names and formatting to match
+  #  the schema in the "Column Schema" tab of this document:
+  #  https://docs.google.com/spreadsheets/d/1dllfDXaZBLvB1AsrY1wDS-sPceKAdOY681bqUbfoQAs/edit?usp=sharing
+  #  then save as a CSV and place in the folder
+  #  occurrence_data/standardized_occurrence_data
 
-### DATA IN:
-  # (optional) target_taxa_with_syn.csv
+### INPUTS:
+  # (optional) target_taxa_with_synonyms.csv
     # columns:
-      # 1. "taxon_name" (genus, species, infra rank, and infra name, all
+      # 1. "taxon_name" --> genus, species, infra rank, and infra name, all
       #    separated by one space each; hybrid symbol should be " x ", rather
-      #    than "_" or "✕", and go between genus and species)
-      # 2. (optional) other data you want to keep with taxa info
+      #    than "_" or "✕", and go between genus name and species epithet
+      # 2. "taxon_name_accepted" --> the accepted name you're using
+      # 3. "taxon_name_status" --> "Accepted" or "Synonym"
+      # 4+. (optional) other metadata you want to keep with target taxa
   # files needed for FIA data download/standardization:
   #   FIA_AppendixF_TreeSpeciesCodes_2016.csv
   #   US_state_county_FIPS_codes.csv
 
-### DATA OUT:
+### OUTPUTS:
   # gbif.csv
   # idigbio.csv
   # herbaria.csv
   # bien.csv
   # fia.csv
   # bison.csv
+  # [additional files if added manually via instructions in NOTE #2 above)
 
 ################################################################################
 # Load libraries
@@ -50,9 +55,9 @@
 
 rm(list=ls())
 my.packages <- c('plyr', 'tidyverse', 'spocc', 'rgbif', 'data.table', 'BIEN',
-                 'ridigbio', 'batchtools', 'googledrive', 'textclean','rbison',
-                 'tools')
-#  install.packages(my.packages) #Turn on to install current versions
+                 'ridigbio', 'batchtools', 'googledrive', 'textclean',
+                 'rbison', 'tools')
+# install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
     rm(my.packages)
 
