@@ -2,7 +2,7 @@
 
 ### 0-1_set_working_directory.R
 ### Authors: Shannon M Still & Emily Beckman Bruns
-### Creation Date: 05/21/2020
+### Creation date: 21 May 2020
 
 ### DESCRIPTION:
 # This script sets the working environment for the computer on which you are
@@ -18,7 +18,10 @@
 ## For Emily Beckman Bruns:
 if (Sys.info()[4] == "Africa.local") {
   # set main working directory
-  main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/IMLS MFA/occurrence_points"
+    # for IMLS Collections Value project
+  #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/IMLS MFA/occurrence_points"
+    # for North American fruit and nut tree CWR project
+  main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
   # OPTIONAL: set local working directory, for trialing locally before saving
   #   to main working directory
   local_dir <- "./Desktop/*work"
