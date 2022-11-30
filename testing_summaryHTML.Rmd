@@ -10,6 +10,45 @@ toc_float:
   collapsed: yes
 smooth_scroll: no
 ---
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#Set up working directory
+main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
+#And additional file paths for point data and SDM folders
+path.pts <- file.path(main_dir,"OLD-occurrence_points","OUTPUTS_FROM_R",
+                      "taxon_edited_points")
+path.gis <- file.path(main_dir,"gis_layers")
+
+#Read in occurrence point data
+JcalData <- read.csv(file.path(path.pts,"Juglans_californica.csv"))
+JhinData <- read.csv(file.path(path.pts,"Juglans_hindsii.csv"))
+JmajData <- read.csv(file.path(path.pts,"Juglans_major.csv"))
+Od <- rbind(JmajData,JcalData,JhinData)
+  #Edit to match format needed for GapAnalysis
+Od <- Od %>%
+  dplyr::mutate(
+    database = recode(database,
+                      "Ex_situ" = "G",
+                      .default = "H")) %>%
+  dplyr::rename(
+    species = taxon_name_acc,
+    latitude = decimalLatitude,
+    longitude = decimalLongitude,
+    type = database) %>%
+  dplyr::select(species,latitude,longitude,type)
+Od$species <- gsub(" ","_",Od$species)
+
+#Create list of target taxon names
+Sl <- unique(Od$species)
+
+#Read in species distribution raster data
+JcalRaster <- raster(file.path(path.gis,"PNAS_2020_SDMs",
+                               "Juglans_californica_PNAS_2020_SDM.tif"))
+JhinRaster <- raster(file.path(path.gis,"PNAS_2020_SDMs",
+                               "Juglans_hindsii_PNAS_2020_SDM.tif"))
+JmajRaster <- raster(file.path(path.gis,"PNAS_2020_SDMs",
+                               "Juglans_major_PNAS_2020_SDM.tif"))
+Rl <- list(JmajRaster,JcalRaster,JhinRaster)
+```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 suppressWarnings(suppressMessages(require(tmap)))
@@ -30,7 +69,10 @@ tmap::tmap_mode("view")
     Rl <- Rl
   }
 
-  # Load in protected areas
+#Load in protected areas
+
+#If not running in the GapAnalysis package, load manually here:
+Pro_areas <- raster(file.path(path.gis,"wdpa_reclass.tif"))
 
   if(is.null(Pro_areas) | missing(Pro_areas)){
     if(file.exists(system.file("data/preloaded_data/protectedArea/wdpa_reclass.tif",package = "GapAnalysis"))){
@@ -42,8 +84,12 @@ tmap::tmap_mode("view")
     Pro_areas <- Pro_areas
   }
 
-    # load in ecoregions dataset
-  # Load in ecoregions shp
+#Load in ecoregions shapefile
+
+#If not running in the GapAnalysis package, load manually here:
+Ecoregions_shp <- raster::shapefile(file.path(
+  path.gis, "global-ecoregions/tnc_terr_ecoregions.shp"))
+
   #print(missing(Ecoregions_shp))
   if(is.null(Ecoregions_shp)){
     if(file.exists(system.file("data/preloaded_data/ecoRegion/tnc_terr_ecoregions.shp",package = "GapAnalysis"))){
