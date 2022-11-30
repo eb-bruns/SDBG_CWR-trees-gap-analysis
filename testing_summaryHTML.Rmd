@@ -198,26 +198,32 @@ Potential distribution not conserved ex situ = 1
 
 Potential distribution conserved ex situ (within G buffer) = 2
 
-```{r  echo=FALSE, message=FALSE, warning=FALSE}
-r1 <- Rl[[1]]
-r2 <- r1
-r2[r2==1]<-2
 
-g1 <- exGRS$gap_maps[[1]]
+```{r  echo=FALSE, message=FALSE, warning=FALSE}
+# rework this section to get rid of additional layer (native area)
+r1 <- Rl[[1]] # provided externally
+r2 <- r1
+r2[r2==1]<-2 # reclassification of 1 to 2
+
+g1 <- exGRS$gap_maps[[1]] # NA, 0, 1
 g1[is.na(g1),] <- 0
-g2 <- r2 - g1
+g2 <- r2 - g1 # gives the three elements
 
 gd <- Od[Od$type == "G",]
 gd <- gd[!is.na(gd$latitude),]
 
-if(nrow(gd) >0 ){
+if(nrow(gd) >0 ){ # be careful with these conditional statements
   gp <- sp::SpatialPoints(coords = gd[,c(3,2)],proj4string = crs(r1))
 
-tm_shape(g2, name = "Native area, distribution model, and G buffers")+
-  tm_raster(style="cat", title = "Map of GRSex",palette = gBufPal,
-            labels = c("0: Native area",
-                       "1: Potential distribution not conserved ex situ",
-                       "2: Potential distribution conserved ex situ"))+
+# could do leaflet here instead
+  leaflet() %>% ....
+
+tm_shape(g1, name = "Distribution model, and G buffers")+
+  tm_raster(style="cat", title = "Map of GRSex",
+  palette = gBufPal, # change above to just 2 values or just binaryPal
+            labels = c(
+                       "0: Potential distribution not conserved ex situ",
+                       "1: Potential distribution conserved ex situ"))+
   tm_shape(gp, name = "G occurrences")+
     tm_dots(col = gPColor,title = "Germplasma Occurrences",legend.show = TRUE)
 }else{
@@ -269,14 +275,14 @@ gEco <- unique(raster::values(g1))
 
 # mask  based on predicted presence area
 r2 <- r1
-r2[r2 == 0]<-NA
+r2[r2 == 0]<-NA # make native area NA --> need to edit maybe for our layers
 
-e1 <- Ecoregions_shp[Ecoregions_shp$ECO_ID_U %in% gEco,]
+e1 <- Ecoregions_shp[Ecoregions_shp$ECO_ID_U %in% gEco,] #ecoregions present in the raster
 #convert to sf object for conversion using fasterize
 e1 <- sf::st_as_sf(e1, r1)
 # generate a ecoregion raster keeping the unique id.
-e1 <- fasterize::fasterize(e1, r1, field = "ECO_ID_U")
-e1 <- e1 * r2
+e1 <- fasterize::fasterize(e1, r1, field = "ECO_ID_U") #polygon to raster
+e1 <- e1 * r2 # clip ecoregions to area the species is predicted
 
 
 if(length(gEco) > 30){
@@ -440,7 +446,7 @@ g1 <- inERS$gap_maps[[1]]
 gEco <- unique(raster::values(g1))
 g1[g1 ==0] <- NA
 
-if(length(gEco)>30){
+if(length(gEco)>30){ # if more than 30 ecoregions, tmap could not visualize as categories ('cat' style)
   try(tm_shape(r1, name = "Native area and distribution model where ecoregions conserved in situ")+
   tm_raster(style = "pretty", palette = ersBPal, title = "Map of ERSin",
             labels = c("0: Native area", "1: Potential distribution where ecoregions conserved in situ"))+
