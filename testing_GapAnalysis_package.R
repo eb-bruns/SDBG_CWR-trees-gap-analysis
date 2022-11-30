@@ -12,6 +12,10 @@ lapply(my.packages, require, character.only=TRUE)
 
 ## assign main working directory
 main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
+# set up file paths
+path.pts <- file.path(main_dir,"OLD-occurrence_points","OUTPUTS_FROM_R","taxon_edited_points")
+path.sdm <- file.path(main_dir,"gis_layers","PNAS_2020_SDMs")
+#path.out.figs <- file.path(local_dir,"interactive_maps")
 
 ### TESTING WITH JUGLANS CALIFORNICA & J. HINDSII
 
@@ -19,12 +23,9 @@ main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North Ameri
 #data(CucurbitaData)
 #str(CucurbitaData)
   # read in data
-JcalData <- read.csv(file.path(
-  main_dir,"occurrence_points/OUTPUTS_FROM_R/taxon_edited_points/Juglans_californica.csv"))
-JhinData <- read.csv(file.path(
-  main_dir,"occurrence_points/OUTPUTS_FROM_R/taxon_edited_points/Juglans_hindsii.csv"))
-JmajData <- read.csv(file.path(
-  main_dir,"occurrence_points/OUTPUTS_FROM_R/taxon_edited_points/Juglans_major.csv"))
+JcalData <- read.csv(file.path(main_dir,path.pts,"Juglans_californica.csv"))
+JhinData <- read.csv(file.path(main_dir,path.pts,"Juglans_hindsii.csv"))
+JmajData <- read.csv(file.path(main_dir,path.pts,"Juglans_major.csv"))
 JData <- rbind(JmajData,JcalData,JhinData)
 str(JData)
   # edit to match format needed for GapAnalysis
@@ -50,18 +51,23 @@ speciesList
 #CucurbitaRasters <- raster::unstack(CucurbitaRasters)
 #str(CucurbitaRasters)
   # read in SDM output rasters and stack
-JcalRaster <- raster(file.path(
-  main_dir,"gis_layers/PNAS_2020_SDMs/Juglans_californica_PNAS_2020_SDM.tif"))
-JhinRaster <- raster(file.path(
-  main_dir,"gis_layers/PNAS_2020_SDMs/Juglans_hindsii_PNAS_2020_SDM.tif"))
-JmajRaster <- raster(file.path(
-  main_dir,"gis_layers/PNAS_2020_SDMs/Juglans_major_PNAS_2020_SDM.tif"))
+JcalRaster <- raster(file.path(main_dir,path.sdm,"Juglans_californica_PNAS_2020_SDM.tif"))
+JhinRaster <- raster(file.path(main_dir,path.sdm,"Juglans_hindsii_PNAS_2020_SDM.tif"))
+JmajRaster <- raster(file.path(main_dir,path.sdm,"Juglans_major_PNAS_2020_SDM.tif"))
 JRasters <- list(JmajRaster,JcalRaster,JhinRaster)
 str(JRasters)
 
 ##Obtaining protected areas raster
+  # this seems to download the 10 arc minutes version instead of 2.5 arc min
 data(ProtectedAreas)
 str(ProtectedAreas)
+  res(ProtectedAreas) # resolution = 0.1666667 0.1666667
+  # so I downloaded from the source to read that in instead...
+# read in PA file from Dataverse:
+#   https://dataverse.harvard.edu/dataverse/GapAnalysis
+ProtectedAreas <- raster(file.path(
+  main_dir,"gis_layers/wdpa_reclass.tif"))
+  res(ProtectedAreas) # resolution = 0.04166667 0.04166667
 
 ##Obtaining ecoregions shapefile
 data(ecoregions)
@@ -74,7 +80,7 @@ FCSex_df <- FCSex(Species_list=speciesList,
                   Buffer_distance=50000,
                   Ecoregions_shp=ecoregions
 )
-str(FCSex_df)
+FCSex_df
 
 ##Running all three in situ gap analysis steps using FCSin function
 FCSin_df <- FCSin(Species_list=speciesList,
@@ -82,28 +88,78 @@ FCSin_df <- FCSin(Species_list=speciesList,
                   Raster_list=JRasters,
                   Ecoregions_shp=ecoregions,
                   Pro_areas=ProtectedAreas)
-str(FCSin_df)
+FCSin_df
 
 ##Combine gap analysis metrics
 FCSc_mean_df <- FCSc_mean(FCSex_df = FCSex_df,FCSin_df = FCSin_df)
-str(FCSc_mean_df)
+FCSc_mean_df
 
 ##Running Conservation indicator across taxa
 indicator_df <- indicator(FCSc_mean_df)
-str(indicator_df)
+indicator_df
+
+
+
+
+##EBB: Testing creating a rasterized buffer layer to use instead of SDM
+library("terra")
+# function for creating aggregated buffers around occurrence points
+create.buffers <- function(df,radius,pt_proj,buff_proj,boundary){
+  # turn occurrence point data into a SpatVector
+  spat_pts <- vect(df, geom=c("decimalLongitude", "decimalLatitude"),
+                   crs=pt_proj)
+  # reproject to specified projection
+  proj_df <- project(spat_pts,buff_proj)
+  # place buffer around each point, then dissolve into one polygon
+  buffers <- buffer(proj_df,width=radius)
+  buffers <- aggregate(buffers,dissolve = TRUE)
+  # clip by boundary so they don't extend into the water
+  boundary <- project(boundary,buff_proj)
+  buffers_clip <- crop(buffers,boundary)
+  # make into object that can be mapped in leaflet
+  buffers_clip_sf <- sf::st_as_sf(buffers_clip)
+  # return buffer polygons
+  return(buffers_clip_sf)
+}
+# define projections
+pt.proj <- "+proj=longlat +datum=WGS84"
+calc.proj <- "+proj=aea + lat_1=29.5 + lat_2=45.5 + lat_0=37.5 + lon_0=-96 +x_0=0 +y_0=0 + ellps =GRS80 +datum=NAD83 + units=m +no_defs"
+# create boundary for clipping buffers to land
+ecoregions_sf <- as(ecoregions, "SpatVector")
+ecoregions_proj <- project(ecoregions_sf,pt.proj)
+boundary.poly <- aggregate(ecoregions_proj,dissolve = TRUE)
+## read in occurrence records (includes ex situ)
+#spp.pts <- read.csv(file.path(path.pts, paste0(spp.all[i], ".csv")))
+## create layer of buffers around points
+spp.pts.buffer <- create.buffers(JcalData,50000,pt.proj,pt.proj,boundary.poly)
+## rasterize the vector
+raster_blueprint <- raster()
+extent(raster_blueprint) <- extent(spp.pts.buffer)
+res(rasterized_buffer) <- res(ProtectedAreas)
+rasterized_buffer <- rasterize(spp.pts.buffer, raster_blueprint)
+plot(rasterized_buffer)
+
+##Run the gap analysis again with this new layer
+FCSex_df_buff <- FCSex(Species_list=speciesList[2],
+                  Occurrence_data=JData,
+                  Raster_list=rasterized_buffer,
+                  Buffer_distance=50000,
+                  Ecoregions_shp=ecoregions
+)
+FCSex_df_buff
+FCSin_df_buff <- FCSin(Species_list=speciesList[2],
+                  Occurrence_data=JData,
+                  Raster_list=rasterized_buffer,
+                  Ecoregions_shp=ecoregions,
+                  Pro_areas=ProtectedAreas)
+FCSin_df_buff
+
+
+
+
 
 ##Generate summary HTML file with all result
 GetDatasets()
-  # look at resolutions
-  res(ProtectedAreas) # 0.1666667 0.1666667
-  res(JcalRaster) # 0.04166667 0.04166667
-
-# read in PA file from Dataverse:
-#   https://dataverse.harvard.edu/dataverse/GapAnalysis
-ProtectedAreas <- raster(file.path(
-  main_dir,"gis_layers/wdpa_reclass.tif"))
-  # check resolution
-  res(ProtectedAreas) # 0.04166667 0.04166667
 
   #####Adding test data for running summaryHTML.Rmd separately
   Sl <- speciesList
