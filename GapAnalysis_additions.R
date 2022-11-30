@@ -75,9 +75,10 @@ length(taxon_names) #95
 # Read in data
 ################################################################################
 
-# occurrence point data
+## occurrence point data
+
 # compiled using 2-0_get_occurrence_data.R & 3-0_compile_occurrence_data.R
-  # read in data for each species and combine into one dataframe
+# read in data for each species and combine into one dataframe
 all_occ <- data.frame()
 for(i in 1:length(taxon_names)){
   taxon_nm <- gsub(" ","_",taxon_names[i])
@@ -86,11 +87,8 @@ for(i in 1:length(taxon_names)){
 }
 head(all_occ)
 
-
-JData <- rbind(JmajData,JcalData,JhinData)
-str(JData)
-  # edit to match format needed for GapAnalysis
-JData <- JData %>%
+# edit data to match format needed for GapAnalysis
+all_occ <- all_occ %>%
   dplyr::mutate(database = recode(database,
                            "Ex_situ" = "G",
                            .default = "H")) %>%
@@ -99,12 +97,11 @@ JData <- JData %>%
          longitude = decimalLongitude,
          type = database) %>%
   dplyr::select(species,latitude,longitude,type)
-JData$species <- gsub(" ","_",JData$species)
-str(JData)
+all_occ$species <- gsub(" ","_",all_occ$species)
+str(all_occ)
 
-##Obtaining species names from the data
-#speciesList <- unique(CucurbitaData$species)
-speciesList <- unique(JData$species)
+## species list input for GapAnalysis
+speciesList <- unique(all_occ$species)
 speciesList
 
 ##Obtaining raster_list
