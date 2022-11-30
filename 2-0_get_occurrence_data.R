@@ -2,8 +2,11 @@
 
 ### 2-0_get_occurrence_data.R
 ### Authors: Emily Beckman Bruns & Shannon M Still
+### Funding:
+
 ### Creation date: 5 February 2020
-### Last full check and update: 16 November 2022
+### Last full check and update: 17 November 2022
+### R version 4.2.2
 
 ### DESCRIPTION:
   # This script provides instructions and code chunks for downloading and
@@ -32,6 +35,7 @@
 
 ### INPUTS:
   # (optional) target_taxa_with_synonyms.csv
+  # see example in Gap-analysis-workflow_metadata.xlsx workbook
     # columns:
       # 1. "taxon_name" --> genus, species, infra rank, and infra name, all
       #    separated by one space each; hybrid symbol should be " x ", rather
@@ -39,9 +43,6 @@
       # 2. "taxon_name_accepted" --> the accepted name you're using
       # 3. "taxon_name_status" --> "Accepted" or "Synonym"
       # 4+. (optional) other metadata you want to keep with target taxa
-  # files needed for FIA data download/standardization:
-  #   FIA_AppendixF_TreeSpeciesCodes_2016.csv
-  #   US_state_county_FIPS_codes.csv
 
 ### OUTPUTS:
   # gbif.csv
