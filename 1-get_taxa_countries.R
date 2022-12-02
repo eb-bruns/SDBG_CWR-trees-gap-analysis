@@ -27,7 +27,7 @@
 # Load libraries
 ################################################################################
 
-my.packages <- c("tidyverse","countrycode","textclean")
+my.packages <- c("tidyverse","countrycode","textclean","data.table")
 #install.packages(my.packages) # turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
   rm(my.packages)
@@ -136,30 +136,34 @@ no_match
   # Open the "Taxonomy" tab in the left bar
   #   Either search for your target genus or just check "Plantae" to download
   #   data for all plant species that have assessments globally.
-  #   You can limit the search further using the other tabs, if desired,
+  #   You can also search by Family/families if preferred.
+  #   You can limit the search further using the other tabs, as desired,
   #   but further refinement can sometimes exclude assessments you want.
   #   When you're ready, on the right click "Download" then "Search Results"
   # You will receive an email when your download is ready
   # Next, go to your account (https://www.iucnredlist.org/account)
   #   Under "Saved downloads" click "Download" for your recent search
-  #   Move downloaded folder to your "taxa_metadata" folder
+  #   Move downloaded folder to your "taxa_metadata" folder and rename it
+  #   simply "redlist_species_data"
 
 # read in downloaded RL data for country-level species distribution
 countries <- read.csv(file.path(main_dir,"taxa_metadata",
     "redlist_species_data","countries.csv"),
     colClasses = "character",na.strings=c("","NA"),strip.white=T)
+
 # condense output so its one entry per species
 countries_c <- countries %>%
   dplyr::filter(presence != "Extinct Post-1500") %>%
-  rename(genus_species = scientificName) %>%
+  rename(taxon_name_accepted = scientificName) %>%
   dplyr::arrange(code) %>%
-  dplyr::group_by(genus_species,origin) %>%
+  dplyr::group_by(taxon_name_accepted,origin) %>%
   dplyr::mutate(
     rl_native_dist_iso2c = paste(code, collapse = '; '),
     rl_native_dist = paste(name, collapse = '; ')) %>%
   dplyr::ungroup() %>%
-  dplyr::select(genus_species,origin,rl_native_dist_iso2c,rl_native_dist) %>%
-  dplyr::distinct(genus_species,origin,.keep_all=T)
+  dplyr::select(taxon_name_accepted,origin,rl_native_dist_iso2c,
+                rl_native_dist) %>%
+  dplyr::distinct(taxon_name_accepted,origin,.keep_all=T)
 
 # separate native dist countries from introduced dist countries
 rl_native <- countries_c %>% filter(origin == "Native")
@@ -170,30 +174,32 @@ names(rl_introduced)[4] <- "rl_introduced_dist"
 rl_list <- full_join(rl_native[,c(1,4,3)],rl_introduced[,c(1,4,3)])
 
 # add country codes to the taxon list by matching to RL data
-taxon_list <- left_join(taxon_list, rl_list,
-  by=c("taxon_name_acc" = "genus_species"))
+taxon_list <- left_join(taxon_list, rl_list, by="taxon_name_accepted")
 
 # see which species have no RL data
 no_match <- taxon_list[which(is.na(taxon_list$rl_native_dist)),]$taxon_name_acc
 no_match
 
-### Combine GTS and RL results
+################################################################################
+# Combine GTS and RL results
+################################################################################
 
 # keep only added native distribution columns
 native_dist <- taxon_list %>%
-  dplyr::select(taxon_name_acc,gts_native_dist,
+  dplyr::select(taxon_name_accepted,gts_native_dist,
     gts_native_dist_iso2c,rl_native_dist,rl_native_dist_iso2c,
     rl_introduced_dist,rl_introduced_dist_iso2c) %>%
-  dplyr::distinct(taxon_name_acc,gts_native_dist,
+  dplyr::distinct(taxon_name_accepted,gts_native_dist,
     gts_native_dist_iso2c,rl_native_dist,rl_native_dist_iso2c,
     rl_introduced_dist,rl_introduced_dist_iso2c)
 
 # see which target taxa have no distribution data matched
 native_dist[is.na(native_dist$gts_native_dist) &
-            is.na(native_dist$rl_native_dist),]$taxon_name_acc #35
+            is.na(native_dist$rl_native_dist),]$taxon_name_acc #40
   # *species* without country-level distribution data:
     #"Asimina incana"
     #"Asimina longifolia"
+    #"Asimina manasota"
     #"Asimina pygmaea"
     #"Asimina reticulata"
     #"Carya carolinae-septentrionalis"
@@ -208,28 +214,57 @@ native_dist[is.na(native_dist$gts_native_dist) &
     #"Prunus pumila"
     #"Prunus texana"
 
-# create columns that combine GTS and RL
-  # full names
-native_dist$all_native_dist <- paste(native_dist$gts_native_dist,native_dist$rl_native_dist,sep="; ")
+# create columns that combine GTS and RL country data
+  # full country names
+native_dist$all_native_dist <- paste(
+  native_dist$gts_native_dist,native_dist$rl_native_dist,sep="; ")
 native_dist$all_native_dist <- str_squish(mgsub(native_dist$all_native_dist,
     c("NA; ","; NA","NA"),""))
 native_dist$all_native_dist <- gsub(", ","~ ",native_dist$all_native_dist)
 t <- setDT(native_dist)[,list(all_native_dist =
-  toString(sort(unique(strsplit(all_native_dist,'; ')[[1]])))), by = taxon_name_acc]
+  toString(sort(unique(strsplit(all_native_dist,'; ')[[1]])))), 
+  by = taxon_name_accepted]
 native_dist <- native_dist %>% dplyr::select(-all_native_dist) %>% full_join(t)
 native_dist$all_native_dist <- gsub(", ","; ",native_dist$all_native_dist)
 native_dist$all_native_dist <- gsub("~ ",", ",native_dist$all_native_dist)
-  # iso abb.
+  # ISO country code abbreviations
 native_dist$all_native_dist_iso2 <- paste(native_dist$gts_native_dist_iso2c,
   native_dist$rl_native_dist_iso2c,sep="; ")
-native_dist$all_native_dist_iso2 <- str_squish(mgsub(native_dist$all_native_dist_iso2,
-    c("NA; ","; NA","NA"),""))
+native_dist$all_native_dist_iso2 <- str_squish(mgsub(
+  native_dist$all_native_dist_iso2, c("NA; ","; NA","NA"),""))
 t <- setDT(native_dist)[,list(all_native_dist_iso2 =
-  toString(sort(unique(strsplit(all_native_dist_iso2,'; ')[[1]])))), by = taxon_name_acc]
-native_dist <- native_dist %>% dplyr::select(-all_native_dist_iso2) %>% full_join(t)
-native_dist$all_native_dist_iso2 <- gsub(", ","; ",native_dist$all_native_dist_iso2)
-head(native_dist)
+  toString(sort(unique(strsplit(all_native_dist_iso2,'; ')[[1]])))), 
+  by = taxon_name_accepted]
+native_dist <- native_dist %>% 
+  dplyr::select(-all_native_dist_iso2) %>% 
+  full_join(t)
+native_dist$all_native_dist_iso2 <- gsub(
+  ", ","; ",native_dist$all_native_dist_iso2)
 
-# write taxon list with GTS and RL distribution information
+################################################################################
+# *Optionally* Add additional native countries manually
+################################################################################
+
+# adding United States to all species, since that is our target region;
+# can edit or skip depending on your needs
+  # rows with no countries:
+native_dist[which(native_dist$all_native_dist == ""),
+            "all_native_dist"] <- "United States"
+native_dist[which(native_dist$all_native_dist == ""),
+            "all_native_dist_iso2"] <- "US"
+  # rows with countries but missing the US:
+native_dist[which(!grepl("United States",native_dist$all_native_dist)),
+            "all_native_dist"] <- "United States"
+native_dist[which(!grepl("United States",native_dist$all_native_dist)),
+            "all_native_dist_iso2"] <- "US"
+
+# check it out
+head(native_dist)
+unique(native_dist$all_native_dist)
+
+################################################################################
+# Write file
+################################################################################
+
 write.csv(native_dist, file.path(main_dir,"taxa_metadata",
     "target_taxa_with_native_dist.csv"),row.names=F)
