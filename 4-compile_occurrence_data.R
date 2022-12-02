@@ -1,49 +1,44 @@
 ################################################################################
 
-## 3-0_compile_occurrence_points_CWRcopy.R
+## 4-compile_occurrence_data.R
 
 ### Author: Emily Beckman Bruns
-### Funding:
-# Base script was funded by the Institude of Museum and Library Services
-#   (IMLS MFA program grant #MA-30-18-0273-18 to The Morton Arboretum).
+### Funding: Base script was funded by the Institute of Museum and Library 
+# Services (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
 # Moderate edits were added with funding from a cooperative agreement
-#   between the United States Botanic Garden and San Diego Botanic Garden
-#   (subcontracted to The Morton Arboretum), with support from
-#   Botanic Gardens Conservation International U.S.
+# between the United States Botanic Garden and San Diego Botanic Garden
+# (subcontracted to The Morton Arboretum), with support from
+# Botanic Gardens Conservation International U.S.
 
-### Creation date: 26 May 2022
-### Last updated: 10 November 2022
-
+### Last updated: XX December 2022
 ### R version 4.2.2
 
 ### DESCRIPTION:
-  #
-  # This script compiles in situ occurrence point data and ex situ (genebank
-  # and botanical garden) data. We remove any rows for species not in our
-  # target taxa list, standardize some key columns, and write two CSVs of
-  # records: one with all records and one only with records that are geolocated
-  # (include a latitude and longitude).
-  #
+# This script compiles in situ occurrence point data and ex situ (genebank
+# and botanical garden) data. We remove any rows for species not in our
+# target taxa list, standardize some key columns, and write two CSVs of
+# records: one with all records and one only with records that are geolocated
+# (include a latitude and longitude).
 
 ### INPUTS:
-  # target_taxa_with_synonyms.csv
-  #
+# target_taxa_with_synonyms.csv
+#
 
 ### OUTPUTS:
-  #
-  # folder (taxon_raw_records) with CSV of raw data for each target
-  # taxon (e.g., Malus_angustifolia.csv)
-  #
-  # folder (taxon_geo_points) with CSV of geolocated data for each target
-  # taxon (e.g., Malus_angustifolia.csv)
-  #
-  # CSV of all occurrence points without lat-long but with locality description
-  #   (need_geolocation.csv)
-  #
-  # summary table (occurrence_record_summary.csv) with one row for each
-  # target taxon, listing total number of records, number of records with valid
-  # lat-long, and number of records with locality description only
-  #
+#
+# folder (taxon_raw_records) with CSV of raw data for each target
+# taxon (e.g., Malus_angustifolia.csv)
+#
+# folder (taxon_geo_points) with CSV of geolocated data for each target
+# taxon (e.g., Malus_angustifolia.csv)
+#
+# CSV of all occurrence points without lat-long but with locality description
+#   (need_geolocation.csv)
+#
+# summary table (occurrence_record_summary.csv) with one row for each
+# target taxon, listing total number of records, number of records with valid
+# lat-long, and number of records with locality description only
+#
 
 ################################################################################
 # Load libraries
@@ -66,9 +61,11 @@ mutate <- dplyr::mutate
 # Set working directory
 ################################################################################
 
-# set manually to wherever you want
-#   mine is a Google Drive folder
-main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
+# either set manually:
+#main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
+
+# or use 0-set_working_directory.R script:
+source("SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
 
 ################################################################################
 ################################################################################

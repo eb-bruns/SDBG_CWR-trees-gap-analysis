@@ -132,18 +132,20 @@ srsinPal <- c("#FFFFFF", "#FA4101") # white to red
 
 #In situ
 inSRS <- GapAnalysis::SRSin(Species_list = Sl, Occurrence_data = Od,
-                            Raster_list = Rl, Pro_areas = Pro_areas, Gap_Map = TRUE)
+                            Raster_list = Rl, Pro_areas = Pro_areas, 
+                            Gap_Map = TRUE)
 
 inGRS <- GapAnalysis::GRSin(Species_list = Sl, Occurrence_data = Od,
                             Raster_list = Rl, Pro_areas = Pro_areas,
                             Gap_Map = TRUE)
 
 inERS <- GapAnalysis::ERSin(Species_list = Sl, Occurrence_data = Od,
-                            Raster_list = Rl, Pro_areas = Pro_areas, Ecoregions_shp = Ecoregions_shp,
-                            Gap_Map = TRUE)
+                            Raster_list = Rl, Pro_areas = Pro_areas, 
+                            Ecoregions_shp = Ecoregions_shp, Gap_Map = TRUE)
 
 inFCS <- GapAnalysis::FCSin(Species_list = Sl, Occurrence_data = Od,
-                            Raster_list = Rl, Pro_areas = Pro_areas, Ecoregions_shp = Ecoregions_shp)
+                            Raster_list = Rl, Pro_areas = Pro_areas, 
+                            Ecoregions_shp = Ecoregions_shp)
 
 
 #Ex situ
@@ -155,7 +157,7 @@ exGRS <- GapAnalysis::GRSex(Occurrence_data = Od, Species_list = Sl,
 
 exERS <- GapAnalysis::ERSex(Species_list = Sl, Occurrence_data = Od,
                             Buffer_distance = Buffer_distance,
-                            Raster_list = Rl,Ecoregions_shp = Ecoregions_shp,
+                            Raster_list = Rl, Ecoregions_shp = Ecoregions_shp,
                             Gap_Map = TRUE )
 
 exFCS <- GapAnalysis::FCSex(Species_list = Sl,Occurrence_data = Od,

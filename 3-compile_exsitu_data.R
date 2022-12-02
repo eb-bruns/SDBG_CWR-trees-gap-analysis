@@ -1,54 +1,52 @@
 ################################################################################
 
-### 2-0_compile_exsitu_data.R
-### Authors: Emily Beckman Bruns
-### Funding:
-# Base script was funded by the Institude of Museum and Library Services
-#   (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
-# Smaller edits were added with funding from a cooperative agreement
-#   between the United States Botanic Garden and San Diego Botanic Garden
-#   (subcontracted to The Morton Arboretum), with support from
-#   Botanic Gardens Conservation International U.S.
+### 3-compile_exsitu_data.R
+
+### Author: Emily Beckman Bruns
+### Funding: Base script was funded by the Institute of Museum and Library 
+# Services (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
+# Moderate edits were added with funding from a cooperative agreement
+# between the United States Botanic Garden and San Diego Botanic Garden
+# (subcontracted to The Morton Arboretum), with support from
+# Botanic Gardens Conservation International U.S.
 
 ### Creation date: 13 December 2019
-### Last full check and update: 30 November 2022
+### Last updated: 02 December 2022
 ### R version 4.2.2
 
 ### DESCRIPTION:
-  # This script takes a folder of CSV files representing accessions data from
-  #   different institutions, combines them into one dataset, and standardizes
-  #   some important fields.
-  #
+# This script takes a folder of CSV files representing accessions data from
+# different botanical garden collections, combines them into one dataset, 
+# and standardizes some important fields.
 
 ### INPUTS:
-  #
-  # 1. exsitu_standard_column_names (folder)
-  #    Accessions data from ex situ collections survey; CSV files whose column
-  #    names have been standardized by hand using instructions in the
-  #    "Processing ex situ data" tab in Gap-analysis-workflow_metadata.xlsx
-  #
-  # 2. institution_data_table.csv
-  #    Table with metadata for institutions who provided accessions data during
-  #    the ex situ collections survey; see example in
-  #    Gap-analysis-workflow_metadata.xlsx
-  #
-  # 3. target_taxa_with_synonyms.csv
-  #    List of target taxa and synonyms; see example in
-  #    Gap-analysis-workflow_metadata.xlsx
-  #
-  # 4. Accession-level data downloads from international crop genebank
-  #    databases; download instructions are provided within the script below
-  # (a) Genesys [Global Crop Diversity Trust]:
-  #     https://www.genesys-pgr.org/a/overview
-  # (b) WIEWS [FAO's World information and early warning system on plant genetic
-  #     resources for food and agriculture]:
-  #     https://www.fao.org/wiews/data/ex-situ-sdg-251/search/en/?no_cache=1
-  #
-  # 5. Polygons...
+#
+# 1. exsitu_standard_column_names (folder)
+#    Accessions data from ex situ collections survey; CSV files whose column
+#    names have been standardized by hand using instructions in the
+#    "Processing ex situ data" tab in Gap-analysis-workflow_metadata.xlsx
+#
+# 2. institution_data_table.csv
+#    Table with metadata for institutions who provided accessions data during
+#    the ex situ collections survey; see example in
+#    Gap-analysis-workflow_metadata.xlsx
+#
+# 3. target_taxa_with_synonyms.csv
+#    List of target taxa and synonyms; see example in
+#    Gap-analysis-workflow_metadata.xlsx
+#
+# 4. Accession-level data downloads from international crop genebank
+#    databases; download instructions are provided within the script below
+# (a) Genesys [Global Crop Diversity Trust]:
+#     https://www.genesys-pgr.org/a/overview
+# (b) WIEWS [FAO's World information and early warning system on plant genetic
+#     resources for food and agriculture]:
+#     https://www.fao.org/wiews/data/ex-situ-sdg-251/search/en/?no_cache=1
+#
+# 5. Polygons...
 
 ### OUTPUTS:
-  # ExSitu_AllDataRaw_GenusFilterOnly_[[Sys.Date]].csv
-  # ....
+# 
 
 ################################################################################
 # Load libraries
@@ -74,9 +72,10 @@ distinct <- dplyr::distinct
 ################################################################################
 
 # either set manually:
-main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/ALL ACCESSION-LEVEL DATA FROM SURVEYS: 2017-2022"
-# or use 0-1_set_workingdirectory.R script:
-#source("./Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-1_set_working_directory.R")
+#main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
+
+# or use 0-set_working_directory.R script:
+source("SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
 
 # set folders where you have raw data (in) and want processed data to go (out)
 data_in <- "exsitu_standard_column_names"

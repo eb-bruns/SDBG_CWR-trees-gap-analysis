@@ -1,57 +1,63 @@
 ################################################################################
 
-### 2-0_get_occurrence_data.R
-### Authors: Emily Beckman Bruns & Shannon M Still
-### Funding:
+### 2-get_occurrence_data.R
 
-### Creation date: 5 February 2020
+### Authors: Emily Beckman Bruns & Shannon M Still
+### Funding: Base script was funded by the Institute of Museum and Library 
+# Services (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
+# Moderate edits were added with funding from a cooperative agreement
+# between the United States Botanic Garden and San Diego Botanic Garden
+# (subcontracted to The Morton Arboretum), with support from
+# Botanic Gardens Conservation International U.S.
+
+### Creation date: 05 February 2020
 ### Last full check and update: 17 November 2022
 ### R version 4.2.2
 
 ### DESCRIPTION:
-  # This script provides instructions and code chunks for downloading and
-  # standardizing wild occurrence points from:
-    # GLOBAL DATABASES (though all likely have U.S. bias?)
-      # A) Global Biodiversity Information Facility (GBIF)
-      # B) Integrated Digitized Biocollections (iDigBio)
-      # C) IUCN Red List of Threatened Species
-      # D) North American herbaria consortia (SERNEC, SEINet, etc.)
-      # E) Botanical Information and Ecology Network (BIEN)
-    # U.S. NATIONAL DATABASES
-      # F) Forest Inventory and Analysis (FIA) Program of the USDA Forest Service
-      # NOTE: BISON data used to be downloaded as well, but as of 2021
-      # it has now been subsumed under GBIF.us, which is part of GBIF
-  ## NOTE #1: Not all data from these sources are reliable. The aim of this
-  #  script is to get all easily-downloadable occurrence data, which
-  #  can then be sorted and vetted for the user's specific purposes.
-  ## NOTE #2: You can add other occurrence point data (e.g., expert comment,
-  #  NatureServe, floras, USDA PLANTS, BONAP, IUCN Red List, private
-  #  sources, etc.) by standardizing column names and formatting to match
-  #  the schema in the "Column schema" tab of Gap-analysis-workflow_metadata.xlsx,
-  #  then save as a CSV in the folder occurrence_data/standardized_occurrence_data
-  ## NOTE #3: Each database has it's own citation guidelines; please review
-  #  them prior to using the data. Information has been compiled in the
-  #  "Citation guidance" tab of Gap-analysis-workflow_metadata.xlsx
+# This script provides instructions and code chunks for downloading and
+# standardizing wild occurrence points from:
+  # GLOBAL DATABASES (though all likely have U.S. bias?)
+    # A) Global Biodiversity Information Facility (GBIF)
+    # B) Integrated Digitized Biocollections (iDigBio)
+    # C) IUCN Red List of Threatened Species
+    # D) North American herbaria consortia (SEINet, etc.)
+    # E) Botanical Information and Ecology Network (BIEN)
+  # U.S. NATIONAL DATABASES
+    # F) Forest Inventory and Analysis (FIA) Program of USDA Forest Service
+    # NOTE: BISON data used to be downloaded as well, but as of 2021
+    # it has now been subsumed under GBIF.us, which is part of GBIF
+## NOTE #1: Not all data from these sources are reliable. The aim of this
+#  script is to get all easily-downloadable occurrence data, which
+#  can then be sorted and vetted for the user's specific purposes.
+## NOTE #2: You can add other occurrence point data (e.g., expert comment,
+#  NatureServe, floras, USDA PLANTS, BONAP, IUCN Red List, private
+#  sources, etc.) by standardizing column names and formatting to match the
+#  schema in the "Column schema" tab of Gap-analysis-workflow_metadata.xlsx,
+#  then save as a CSV in occurrence_data/standardized_occurrence_data
+## NOTE #3: Each database has it's own citation guidelines; please review
+#  them prior to using the data. Information has been compiled in the
+#  "Citation guidance" tab of Gap-analysis-workflow_metadata.xlsx
 
 ### INPUTS:
-  # (optional) target_taxa_with_synonyms.csv
-  # see example in Gap-analysis-workflow_metadata.xlsx workbook
-    # columns:
-      # 1. "taxon_name" --> genus, species, infra rank, and infra name, all
-      #    separated by one space each; hybrid symbol should be " x ", rather
-      #    than "_" or "✕", and go between genus name and species epithet
-      # 2. "taxon_name_accepted" --> the accepted name you're using
-      # 3. "taxon_name_status" --> "Accepted" or "Synonym"
-      # 4+. (optional) other metadata you want to keep with target taxa
+# (optional) target_taxa_with_synonyms.csv
+# see example in Gap-analysis-workflow_metadata.xlsx workbook
+  # columns:
+    # 1. "taxon_name" --> genus, species, infra rank, and infra name, all
+    #    separated by one space each; hybrid symbol should be " x ", rather
+    #    than "_" or "✕", and go between genus name and species epithet
+    # 2. "taxon_name_accepted" --> the accepted name you're using
+     # 3. "taxon_name_status" --> "Accepted" or "Synonym"
+     # 4+. (optional) other metadata you want to keep with target taxa
 
 ### OUTPUTS:
-  # gbif.csv
-  # idigbio.csv
-  # redlist.csv
-  # herbaria.csv
-  # bien.csv
-  # fia.csv
-  # [additional files if added manually via instructions in NOTE #2 above)
+# gbif.csv
+# idigbio.csv
+# redlist.csv
+# herbaria.csv
+# bien.csv
+# fia.csv
+# [additional files if added manually via instructions in NOTE #2 above]
 
 ################################################################################
 # Load libraries
@@ -68,14 +74,11 @@ lapply(my.packages, require, character.only=TRUE)
 ################################################################################
 
 # either set manually:
-  # main working directory
-#main_dir <- "/Volumes/GoogleDrive/My Drive/Conservation Consortia/R Training/occurrence_points"
-  # location of file with personal login information (e.g., for GBIF)
-#log_loc <- "./Desktop/IMLS_passwords.txt"
-
-# or use 0-1_set_workingdirectory.R script:
-source("./Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-1_set_working_directory.R")
-
+#main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
+    
+# or use 0-set_working_directory.R script:
+source("SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
+    
 # set up file structure within your main working directory
 data <- "occurrence_data"
 raw <- "raw_occurrence_data"

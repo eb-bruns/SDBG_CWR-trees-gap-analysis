@@ -1,37 +1,34 @@
 ################################################################################
 
-## 4-0_plot_occurrence_points_CWRcopy.R
+## 6-visualize_occurrence_data.R
 
-### Authors: Emily Beckman Bruns & Christy Rollinson
-### Funding:
-# Base script was funded by the Institude of Museum and Library Services
-#   (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
+### Authors: Emily Beckman Bruns
+### Funding: Base script was funded by the Institute of Museum and Library 
+# Services (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
 # Moderate edits were added with funding from a cooperative agreement
-#   between the United States Botanic Garden and San Diego Botanic Garden
-#   (subcontracted to The Morton Arboretum), with support from
-#   Botanic Gardens Conservation International U.S.
+# between the United States Botanic Garden and San Diego Botanic Garden
+# (subcontracted to The Morton Arboretum), with support from
+# Botanic Gardens Conservation International U.S.
 
-### Creation date: 03 June 2022
-### Last updated: 06 June 2022
-
-### R version 4.1.3
+### Last updated: XX December 2022
+### R version 4.2.2
 
 ### DESCRIPTION:
-  # Creates interactive (HTML) occurrence point map for each target species,
-  #   for exploring. Includes toggles that show points flagged in
-  #   3-1_refine_occurrence_points.R
-  #   Also creates two fixed basic (PNG) maps for each target species: one with
-  #   all valid occurrence points (output from 3-0_compile_occurrence_points.R)
-  #   and another with all flagged points removed (output from
-  #   3-1_refine_occurrence_points.R)
+# Creates interactive (HTML) occurrence point map for each target species,
+#   for exploring. Includes toggles that show points flagged in
+#   3-1_refine_occurrence_points.R
+#   Also creates two fixed basic (PNG) maps for each target species: one with
+#   all valid occurrence points (output from 3-0_compile_occurrence_points.R)
+#   and another with all flagged points removed (output from
+#   3-1_refine_occurrence_points.R)
 
-### DATA IN:
-  # Occurrence points from 3-1_refine_occurrence_points.R
+### INPUTS:
+# Occurrence points from 3-1_refine_occurrence_points.R
 
-### DATA OUT:
-  # spp_interactive_maps folder with HTML map for each target species
-  #   (e.g., Quercus_lobata_leafet_map.html), which can be downloaded and opened
-  #   in your browser for exploring
+### OUTPUTS:
+# spp_interactive_maps folder with HTML map for each target species
+#   (e.g., Quercus_lobata_leafet_map.html), which can be downloaded and opened
+#   in your browser for exploring
 
 ################################################################################
 # Load libraries
@@ -47,17 +44,13 @@ lapply(my.packages, require, character.only=TRUE)
 # Set working directory
 ################################################################################
 
-# either set manually:
-#main_dir <- "/Volumes/GoogleDrive/My Drive/Conservation Consortia/R Training/occurrence_points"
-#script_dir <- "./Documents/GitHub/OccurrencePoints/scripts"
-main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/In situ - H - records"
+  # either set manually:
+  #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
+  
+  # or use 0-set_working_directory.R script:
+  source("SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
+  
 
-# or use 0-1_set_workingdirectory.R script:
-#source("./Documents/GitHub/OccurrencePoints/scripts/0-1_set_workingdirectory.R")
-#source("scripts/0-1_set_workingdirectory.R")
-
-
-################################################################################
 ################################################################################
 # Use leaflet package to create interactive maps to explore (html)
 ################################################################################
