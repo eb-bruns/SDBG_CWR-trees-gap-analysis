@@ -6,7 +6,7 @@ library(GapAnalysis)
 
 ##Load additional suggested packages
 my.packages <- c('dplyr', 'sp', 'tmap', 'data.table', 'sf', 'methods',
-  'geosphere', 'data.table','fasterize', 'rmarkdown', 'knitr', 'rgdal',
+  'geosphere', 'fasterize', 'rmarkdown', 'knitr', 'rgdal',
   'rgeos', 'kableExtra', 'DT')
 lapply(my.packages, require, character.only=TRUE)
 

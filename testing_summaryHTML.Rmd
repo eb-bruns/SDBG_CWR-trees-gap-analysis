@@ -48,6 +48,9 @@ JhinRaster <- raster(file.path(path.gis,"PNAS_2020_SDMs",
 JmajRaster <- raster(file.path(path.gis,"PNAS_2020_SDMs",
                                "Juglans_major_PNAS_2020_SDM.tif"))
 Rl <- list(JmajRaster,JcalRaster,JhinRaster)
+
+#Assign buffer distance
+Buffer_distance <- 50000
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -72,7 +75,7 @@ tmap::tmap_mode("view")
 #Load in protected areas
 
 #If not running in the GapAnalysis package, load manually here:
-Pro_areas <- raster(file.path(path.gis,"wdpa_reclass.tif"))
+#Pro_areas <- raster(file.path(path.gis,"wdpa_reclass.tif"))
 
   if(is.null(Pro_areas) | missing(Pro_areas)){
     if(file.exists(system.file("data/preloaded_data/protectedArea/wdpa_reclass.tif",package = "GapAnalysis"))){
@@ -87,8 +90,7 @@ Pro_areas <- raster(file.path(path.gis,"wdpa_reclass.tif"))
 #Load in ecoregions shapefile
 
 #If not running in the GapAnalysis package, load manually here:
-Ecoregions_shp <- raster::shapefile(file.path(
-  path.gis, "global-ecoregions/tnc_terr_ecoregions.shp"))
+#Ecoregions_shp <- raster::shapefile(file.path(path.gis, "global-ecoregions/tnc_terr_ecoregions.shp"), encoding = "UTF-8")
 
   #print(missing(Ecoregions_shp))
   if(is.null(Ecoregions_shp)){
@@ -126,9 +128,9 @@ srsinPal <- c("#FFFFFF", "#FA4101") # white to red
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE, }
-# redeclare inputs for ease of entering in values for all functions
+#Re-declare inputs for ease of entering in values for all functions
 
-#insitu
+#In situ
 inSRS <- GapAnalysis::SRSin(Species_list = Sl, Occurrence_data = Od,
                             Raster_list = Rl, Pro_areas = Pro_areas, Gap_Map = TRUE)
 
@@ -144,8 +146,7 @@ inFCS <- GapAnalysis::FCSin(Species_list = Sl, Occurrence_data = Od,
                             Raster_list = Rl, Pro_areas = Pro_areas, Ecoregions_shp = Ecoregions_shp)
 
 
-
-# exsitu
+#Ex situ
 exSRS <- GapAnalysis::SRSex(Species_list = Sl, Occurrence_data = Od)
 
 exGRS <- GapAnalysis::GRSex(Occurrence_data = Od, Species_list = Sl,
@@ -161,7 +162,7 @@ exFCS <- GapAnalysis::FCSex(Species_list = Sl,Occurrence_data = Od,
                             Buffer_distance = Buffer_distance,
                             Raster_list = Rl, Ecoregions_shp = Ecoregions_shp)
 
-#summary
+#Summary
 fcsMean <- GapAnalysis::FCSc_mean(FCSex_df = exFCS, FCSin_df = inFCS)
 
 ```
