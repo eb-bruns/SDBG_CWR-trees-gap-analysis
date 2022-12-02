@@ -1,12 +1,19 @@
 ################################################################################
 
-### 0-1_set_working_directory.R
+### 0-set_working_directory.R
+
 ### Authors: Shannon M Still & Emily Beckman Bruns
+### Funding: Institude of Museum and Library Services
+#   (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
+
 ### Creation date: 21 May 2020
+### Last updated: 02 December 2022
+### R version 4.2.2
 
 ### DESCRIPTION:
 # This script sets the working environment for the computer on which you are
-# working.
+# working. You can add your own computer and working directories by filling in 
+# the blanks (________) below!
 
 ################################################################################
 # Set working environment depending on your computer
