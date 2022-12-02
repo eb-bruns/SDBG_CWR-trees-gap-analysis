@@ -4,16 +4,14 @@
 
 ### Authors: Emily Beckman Bruns & Shannon M. Still
 ### Funding:
-# Base script was funded by the Institude of Museum and Library Services
+# Base script was funded by the Institute of Museum and Library Services
 #   (IMLS MFA program grant MA-30-18-0273-18 to The Morton Arboretum).
 # Moderate edits were added with funding from a cooperative agreement
 #   between the United States Botanic Garden and San Diego Botanic Garden
 #   (subcontracted to The Morton Arboretum), with support from
 #   Botanic Gardens Conservation International U.S.
 
-### Creation date: 26 May 2022
 ### Last updated: 03 June 2022
-
 ### R version 4.1.3
 
 ### DESCRIPTION:
@@ -22,7 +20,7 @@
   #   'CoordinateCleaner' package, which was created for "geographic cleaning
   #   of coordinates from biologic collections."
 
-### DATA IN:
+### INPUTS:
   # output from 3_compile_raw_occurrence_points.R
   # tabular data:
   # - target_taxa_with_syn.csv
@@ -30,7 +28,7 @@
   # - spatialpolygon data ...
   #
 
-### DATA OUT:
+### OUTPUTS:
   # spp_edited_points folder with CSV of occurrence points for each target
   #   species (e.g., Quercus_lobata.csv)
   # Summary table with one row for each target species, listing number of
