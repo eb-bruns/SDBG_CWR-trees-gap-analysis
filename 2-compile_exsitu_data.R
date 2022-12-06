@@ -1,6 +1,6 @@
 ################################################################################
 
-### 3-compile_exsitu_data.R
+### 2-compile_exsitu_data.R
 
 ### Author: Emily Beckman Bruns
 ### Funding: Base script was funded by the Institute of Museum and Library 
@@ -1387,9 +1387,11 @@ write.csv(geo_needs, file.path(exsitu_dir,data_out,
 
 # records that may need geolocation
 #   (no lat-long, yes locality, prov type not H)
+#   (also add flagged records: water or at institution)
 need_geo <- data_sel %>%
-  filter(is.na(lat_dd) & !is.na(all_locality) & prov_type != "H")
-nrow(need_geo) #4282
+  filter((is.na(lat_dd) & !is.na(all_locality) & prov_type != "H") |
+         flag!="")
+nrow(need_geo) #5389
 # add a couple more columns for keeping notes while geolocating
 need_geo$geolocated_by <- NA
 need_geo$gps_notes <- NA
@@ -1403,11 +1405,11 @@ need_geo <- need_geo %>%
   ungroup() %>%
   distinct(UID,inst_short,taxon_name_accepted,prov_type,lat_dd,long_dd,
            uncertainty,gps_det,geolocated_by,gps_notes,all_locality,county,
-           state,country) %>%
+           state,country,flag) %>%
   select(UID,inst_short,taxon_name_accepted,prov_type,lat_dd,long_dd,
          uncertainty,gps_det,geolocated_by,gps_notes,all_locality,county,
-         state,country)
-nrow(need_geo) #2595
+         state,country,flag)
+nrow(need_geo) #2915
 head(need_geo)
 # flag records for species that are high priority...
 #   threatened and/or have less than 15 wild accessions
@@ -1416,15 +1418,15 @@ head(need_geo)
 rl_threat <- c("CR (Critically Endangered)","EN (Endangered)","VU (Vulnerable)")
 ns_threat <- c("G1 (Critically Imperiled)","G2 (Imperiled)","G3 (Vulerable)")
 few_wild <- geo_needs[geo_needs$num_wild<15,]$taxon_name_accepted
-  # flag records
-flag_taxa <- taxon_list %>%
+  # flag priority taxa
+priority_taxa <- taxon_list %>%
   filter(iucnredlist_category %in% rl_threat |
          natureserve_rank %in% ns_threat |
          taxon_name %in% few_wild) %>%
   select(taxon_name_accepted)
-flag_taxa$flag <- "Priority"
-need_geo <- left_join(need_geo,flag_taxa)
-table(need_geo$flag) #396
+priority_taxa$priority <- "Priority"
+need_geo <- left_join(need_geo,priority_taxa)
+table(need_geo$priority) #415
 
 # write file
 write.csv(need_geo, file.path(exsitu_dir,data_out,
