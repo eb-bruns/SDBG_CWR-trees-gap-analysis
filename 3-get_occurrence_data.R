@@ -1,6 +1,6 @@
 ################################################################################
 
-### 2-get_occurrence_data.R
+### 3-get_occurrence_data.R
 
 ### Authors: Emily Beckman Bruns & Shannon M Still
 ### Funding: Base script was funded by the Institute of Museum and Library 
@@ -27,6 +27,10 @@
     # F) Forest Inventory and Analysis (FIA) Program of USDA Forest Service
     # NOTE: BISON data used to be downloaded as well, but as of 2021
     # it has now been subsumed under GBIF.us, which is part of GBIF
+  # EX SITU ACCESSION-LEVEL WILD COLLECTION LOCATION
+    # G) If you ran script 2-compile_exsitu_data.R, this section can be 
+    # used to prep wild collection location lat-longs to be used used within the
+    # in situ occurrence data as well.
 ## NOTE #1: Not all data from these sources are reliable. The aim of this
 #  script is to get all easily-downloadable occurrence data, which
 #  can then be sorted and vetted for the user's specific purposes.
@@ -50,13 +54,14 @@
      # 3. "taxon_name_status" --> "Accepted" or "Synonym"
      # 4+. (optional) other metadata you want to keep with target taxa
 
-### OUTPUTS:
+### OUTPUTS [all are optional]:
 # gbif.csv
 # idigbio.csv
 # redlist.csv
 # herbaria.csv
 # bien.csv
 # fia.csv
+# exsitu.csv
 # [additional files if added manually via instructions in NOTE #2 above]
 
 ################################################################################
@@ -1186,3 +1191,82 @@ fia_raw <- fia_raw %>%
 write.csv(fia_raw, file.path(main_dir,data,standard,"fia.csv"),
   row.names=FALSE)
 rm(fia_raw)
+
+
+###
+###############
+###############################################
+# G) Ex situ accession-level data: wild collection locations
+# These data are compiled in 2-compile_exsitu_data.R and here we are simply 
+# formatting them for use in the occurrence point dataset.
+###############################################
+###############
+###
+
+# read in ex situ data we saved in 2-compile_exsitu_data.R
+exsitu_raw1 <- read.csv(file.path(main_dir,data,raw,"Ex-situ",
+  "ExSitu_Compiled_Post-Geolocation_2022-12-06.csv"), colClasses = "character",
+  na.strings=c("", "NA"), strip.white=T, fileEncoding="UTF-8")
+exsitu_raw2 <- read.csv(file.path(main_dir,data,raw,"Ex-situ",
+  "ExSitu_Dead_2022-12-05.csv"), colClasses = "character",
+  na.strings=c("", "NA"), strip.white=T, fileEncoding="UTF-8")
+exsitu_raw <- rbind.fill(exsitu_raw1,exsitu_raw2)
+nrow(exsitu_raw) #10122
+str(exsitu_raw)
+# rename columns to fit standard
+exsitu_raw <- exsitu_raw %>%
+  rename("taxon_name" = "taxon_name_accepted",
+         "scientificName" = "taxon_full_name_orig",
+         "specificEpithet" = "species",
+         "taxonRank" = "infra_rank",
+         "infraspecificEpithet" = "infra_name",
+         "taxonIdentificationNotes" = "taxon_verif",
+         "year" = "coll_year",
+         "nativeDatabaseID" = "UID",
+         "publisher" = "data_source",
+         "rightsHolder" = "inst_short",
+         "references" = "acc_num",
+         "issue" = "flag",
+         "individualCount" = "num_indiv",
+         "decimalLatitude" = "lat_dd",
+         "decimalLongitude" = "long_dd",
+         "coordinateUncertaintyInMeters" = "uncertainty",
+         "locality" = "all_locality",
+         "verbatimLocality" = "locality",
+         "stateProvince" = "state",
+         "establishmentMeans" = "prov_type") %>%
+  unite("recordedBy", c("coll_name","coll_num"), remove=T, sep="; ") %>%
+  unite("geolocationNotes", c("gps_det","geolocated_by",
+                              "gps_notes"), remove=T, sep="; ") %>%
+  unite("locationNotes", c("germ_type","garden_loc"), remove=T, sep="; ")
+# recode if needed establishmentMeans
+sort(unique(exsitu_raw$establishmentMeans))
+exsitu_raw <- exsitu_raw %>%
+  mutate(establishmentMeans = recode(establishmentMeans,
+    "H" = "CULTIVATED",
+    "H?" = "CULTIVATED",
+    "N" = "NATIVE",
+    "NG" = "UNCERTAIN",
+    "U" = "UNCERTAIN",
+    "W" = "NATIVE",
+    "Z" = "NATIVE"
+  ))
+# add a few informational columns
+exsitu_raw$database <- "Ex_situ"
+exsitu_raw$basisOfRecord <- "HUMAN_OBSERVATION"
+exsitu_raw$datasetName <- exsitu_raw$rightsHolder
+# keep only necessary columns
+exsitu_raw <- exsitu_raw %>%
+  select(database,taxon_name,scientificName,genus,specificEpithet,taxonRank,
+         infraspecificEpithet,taxonIdentificationNotes,year,basisOfRecord,
+         nativeDatabaseID,datasetName,publisher,rightsHolder,references,
+         issue,recordedBy,establishmentMeans,individualCount,decimalLatitude,
+         decimalLongitude,coordinateUncertaintyInMeters,geolocationNotes,
+         locality,verbatimLocality,locationNotes,municipality,county,
+         stateProvince,country)
+head(exsitu_raw)
+# write file
+write.csv(exsitu_raw, file.path(main_dir,data,standard,"exsitu.csv"),
+          row.names=FALSE)
+rm(exsitu_raw)
+
