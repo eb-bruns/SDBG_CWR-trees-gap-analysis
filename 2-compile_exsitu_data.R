@@ -18,6 +18,9 @@
 # This script takes a folder of CSV files representing accessions data from
 # different botanical garden collections, combines them into one dataset, 
 # and standardizes some important fields.
+# !Please note! that significant user input and edits are needed, since every 
+# ex situ dataset is unique. Go slowly step-by-step and continue checking that 
+# everything is as expected. 
 
 ### INPUTS:
 #
@@ -900,10 +903,10 @@ nrow(no_indiv) #922
 write.csv(no_indiv, file.path(exsitu_dir,data_out,
   paste0("ExSitu_Dead_", Sys.Date(), ".csv")),row.names = F)
   # save to in situ data folder as well
-if(!dir.exists(file.path(main_dir,"occurrence_points","raw_occurrence_data","Ex-situ")))
-  dir.create(file.path(main_dir,"occurrence_points","raw_occurrence_data","Ex-situ"),
+if(!dir.exists(file.path(main_dir,"occurrence_data","raw_occurrence_data","Ex-situ")))
+  dir.create(file.path(main_dir,"occurrence_data","raw_occurrence_data","Ex-situ"),
   recursive=T)
-write.csv(no_indiv, file.path(main_dir,"occurrence_points","raw_occurrence_data","Ex-situ",
+write.csv(no_indiv, file.path(main_dir,"occurrence_data","raw_occurrence_data","Ex-situ",
   paste0("ExSitu_Dead_", Sys.Date(), ".csv")),row.names = F)
 all_data7 <- all_data7[which(all_data7$num_indiv > 0),]
 nrow(all_data7) #11491
@@ -1247,13 +1250,15 @@ combine_acc_dups <- function(df,char_cutoff,pattern){
   return(df_return)
 }
 
-# can look at what will be removed in the acc_num before we
-# actually combine things...
+### THE NEXT SECTION NEEDS TO BE THOROUGHLY REVEIWED AND 
+###  EDITED TO FIT YOUR DATASET !
+### Otherwise you will combine records that do not belong together
+
+# can look at what will be combined before we actually combine things...
 all_data9[which(grepl("\\*",all_data9$acc_num)),]$acc_num
 # now combine...
 all_data9 <- combine_acc_dups(all_data9,0,"\\*")
 nrow(all_data9) #9358
-
 # now we'll repeat for additional patterns and cutoffs
 sort(all_data9[which(grepl("[A-F]$",all_data9$acc_num)),]$acc_num)
   all_data9 <- combine_acc_dups(all_data9,9,"[A-F]$"); nrow(all_data9) #9320
@@ -1273,7 +1278,6 @@ sort(all_data9[which(grepl("\\.[0-9][0-9]$",all_data9$acc_num)),]$acc_num)
   all_data9 <- combine_acc_dups(all_data9,9,"\\.[0-9][0-9]$"); nrow(all_data9) #9212
 sort(all_data9[which(grepl("\\.[0-9][0-9][0-9]$",all_data9$acc_num)),]$acc_num)
   all_data9 <- combine_acc_dups(all_data9,9,"\\.[0-9][0-9][0-9]$"); nrow(all_data9) #9207
-
 # can also check which records contain specific elements from above patterns:
 #as.data.frame(all_data7[which(grepl("-DCH-18A;-TF-6A",all_data7$acc_num)),])
 #as.data.frame(all_data7[which(all_data7$acc_num == "1964-0017-00"),])
@@ -1483,7 +1487,7 @@ write.csv(exsitu_all, file.path(exsitu_dir,data_out,
   paste0("All_ExSitu_Compiled_Post-Geolocation_", Sys.Date(), ".csv")), 
   row.names = F)
 # write to in situ folder also
-write.csv(exsitu_all, file.path(main_dir,"occurrence_points",
+write.csv(exsitu_all, file.path(main_dir,"occurrence_data",
                                 "raw_occurrence_data","Ex-situ",
   paste0("ExSitu_Compiled_Post-Geolocation_", Sys.Date(), ".csv")), 
   row.names = F)
