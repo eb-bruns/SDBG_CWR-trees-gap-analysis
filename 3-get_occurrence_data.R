@@ -37,15 +37,16 @@
 ## NOTE #2: You can add other occurrence point data (e.g., expert comment,
 #  NatureServe, floras, USDA PLANTS, BONAP, IUCN Red List, private
 #  sources, etc.) by standardizing column names and formatting to match the
-#  schema in the "Column schema" tab of Gap-analysis-workflow_metadata.xlsx,
-#  then save as a CSV in occurrence_data/standardized_occurrence_data
+#  schema in the "Occurrence data column schema" tab of 
+#  Gap-analysis-workflow_metadata, then save as a CSV in 
+#  your standardized occurrence data folder
 ## NOTE #3: Each database has it's own citation guidelines; please review
 #  them prior to using the data. Information has been compiled in the
-#  "Citation guidance" tab of Gap-analysis-workflow_metadata.xlsx
+#  "Occurrence data citation guidance" tab of Gap-analysis-workflow_metadata
 
 ### INPUTS:
 # (optional) target_taxa_with_synonyms.csv
-# see example in Gap-analysis-workflow_metadata.xlsx workbook
+# see example in Gap-analysis-workflow_metadata workbook
   # columns:
     # 1. "taxon_name" --> genus, species, infra rank, and infra name, all
     #    separated by one space each; hybrid symbol should be " x ", rather
@@ -78,10 +79,10 @@ lapply(my.packages, require, character.only=TRUE)
 # Set working directory
 ################################################################################
 
-# either set manually:
+# either set manually...
 #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
     
-# or use 0-set_working_directory.R script:
+# ...or use 0-set_working_directory.R script:
 source("SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
     
 # set up file structure within your main working directory
@@ -1205,14 +1206,15 @@ rm(fia_raw)
 
 # read in ex situ data we saved in 2-compile_exsitu_data.R
 exsitu_raw1 <- read.csv(file.path(main_dir,data,raw,"Ex-situ",
-  "ExSitu_Compiled_Post-Geolocation_2022-12-06.csv"), colClasses = "character",
+  "ExSitu_Compiled_Post-Geolocation_2022-12-07.csv"), colClasses = "character",
   na.strings=c("", "NA"), strip.white=T, fileEncoding="UTF-8")
 exsitu_raw2 <- read.csv(file.path(main_dir,data,raw,"Ex-situ",
-  "ExSitu_Dead_2022-12-05.csv"), colClasses = "character",
+  "ExSitu_Dead_2022-12-07.csv"), colClasses = "character",
   na.strings=c("", "NA"), strip.white=T, fileEncoding="UTF-8")
 exsitu_raw <- rbind.fill(exsitu_raw1,exsitu_raw2)
-nrow(exsitu_raw) #10122
+nrow(exsitu_raw) #9334
 str(exsitu_raw)
+rm(exsitu_raw1,exsitu_raw2)
 # rename columns to fit standard
 exsitu_raw <- exsitu_raw %>%
   rename("taxon_name" = "taxon_name_accepted",
@@ -1231,8 +1233,7 @@ exsitu_raw <- exsitu_raw %>%
          "decimalLatitude" = "lat_dd",
          "decimalLongitude" = "long_dd",
          "coordinateUncertaintyInMeters" = "uncertainty",
-         "locality" = "all_locality",
-         "verbatimLocality" = "locality",
+         "verbatimLocality" = "all_locality",
          "stateProvince" = "state",
          "establishmentMeans" = "prov_type") %>%
   unite("recordedBy", c("coll_name","coll_num"), remove=T, sep="; ") %>%
