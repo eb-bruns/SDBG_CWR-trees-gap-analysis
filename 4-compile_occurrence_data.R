@@ -455,6 +455,7 @@ write.csv(summary, file.path(main_dir,data,
 # split records points to create one CSV for each target taxon
 sp_split <- split(geo_pts2, as.factor(geo_pts2$taxon_name_accepted))
 names(sp_split) <- gsub(" ","_",names(sp_split))
+names(sp_split) <- gsub("\\.","",names(sp_split))
 
 # write files
 lapply(seq_along(sp_split), function(i) write.csv(sp_split[[i]],
