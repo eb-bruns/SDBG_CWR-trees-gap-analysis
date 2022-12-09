@@ -290,21 +290,21 @@ geo_pts$country <- mgsub(geo_pts$country,
   # find codes for names
 country_codes1 <- as.data.frame(sort(unique(geo_pts$country))) %>%
   add_column(iso3c = countrycode(sort(unique(geo_pts$country)),
-      origin="country.name", destination="iso3c")) %>%
+      origin="country.name", destination="iso2c")) %>%
   rename("country" = "sort(unique(geo_pts$country))",
          "countryCode_standard" = "iso3c")
   # add to data
 geo_pts <- left_join(geo_pts,country_codes1)
 
-# country code to 3 letter ISO code
+# country code to standard 2 letter ISO code
   # fix some issues (can add anything that is not matched unambiguously)
 geo_pts$countryCode <- mgsub(geo_pts$countryCode,
-    c("XK","ZZ"),c("SRB",NA))
+    c("XK","ZZ"),c("RS",NA))
 geo_pts$countryCode <- str_to_upper(geo_pts$countryCode)
-  # find 3-letter codes for 2-letter codes
+  # check codes 
 country_codes2 <- as.data.frame(sort(unique(geo_pts$countryCode))) %>%
   add_column(iso3c = countrycode(sort(unique(geo_pts$countryCode)),
-      origin="iso2c", destination="iso3c")) %>%
+      origin="iso2c", destination="iso2c")) %>%
   rename("countryCode" = "sort(unique(geo_pts$countryCode))",
          "countryCode_standard2" = "iso3c")
 # add to data
