@@ -196,7 +196,7 @@ native_dist <- taxon_list %>%
 # see which target taxa have no distribution data matched
 native_dist[is.na(native_dist$gts_native_dist) &
             is.na(native_dist$rl_native_dist),]$taxon_name_acc #40
-  # *species* without country-level distribution data:
+  # *species* (exclu. taxa) without country-level distribution data:
     #"Asimina incana"
     #"Asimina longifolia"
     #"Asimina manasota"

@@ -166,7 +166,8 @@ unique(taxon_list$taxon_name_acc)[
 all_data <- all_data %>%
   unite("localityDescription",
         c(locality,municipality,higherGeography,county,stateProvince,country,
-          countryCode,locationNotes,verbatimLocality), remove = F, sep = " | ") %>%
+          countryCode,locationNotes,verbatimLocality), remove = F, 
+        sep = " | ") %>%
   mutate(decimalLatitude=as.numeric(decimalLatitude),
          decimalLongitude=as.numeric(decimalLongitude))
 # get rid of NAs but keep pipes, so you can split back into parts if desired
@@ -180,6 +181,7 @@ head(unique(all_data$localityDescription))
 
 # check year column
 # ex situ years were not standardized so most of those get removed here :(
+# "NAs introduced by coercion" warning ok
 all_data$year <- as.numeric(all_data$year)
 # remove values less than 1500 or greater than current year
 all_data$year[which(all_data$year < 1500 |
@@ -217,7 +219,7 @@ coord_test <- cc_val(all_data, lon = "decimalLongitude",lat = "decimalLatitude",
                      value = "flagged", verbose = TRUE) #Flagged 317852 records.
 # mark these as flagged
 all_data$flag <- NA
-all_data[!coord_test,]$flag <- paste0("Coordinates invalid")
+all_data[!coord_test,]$flag <- "Coordinates invalid"
 rm(coord_test)
  
 ################################################################################
@@ -241,9 +243,9 @@ world_polygons <- vect(file.path(main_dir,polygons,
 world_buff <- terra::buffer(world_polygons, width=500)
 rm(world_polygons)
   # make occurrence points a spatial object
-crdref <- "+proj=longlat +datum=WGS84"
-geo_pts_spatial <- vect(cbind(geo_pts$decimalLongitude,geo_pts$decimalLatitude),
-                        atts=geo_pts, crs=crdref)
+geo_pts_spatial <- vect(
+  cbind(geo_pts$decimalLongitude,geo_pts$decimalLatitude),
+  atts=geo_pts, crs="EPSG:4326")
   # intersect points with ecoregions layer
 land_pts <- terra::intersect(geo_pts_spatial,world_buff)
 on_land <- as.data.frame(land_pts); nrow(on_land) #2185947
@@ -358,7 +360,7 @@ geo_pts <- geo_pts %>% arrange(basisOfRecord)
 unique(geo_pts$establishmentMeans)
 geo_pts$establishmentMeans <- factor(geo_pts$establishmentMeans,
   levels = c("NATIVE","WILD","UNCERTAIN","INTRODUCED","MANAGED","CULTIVATED",
-             "DEAD"))
+             "DEAD")) #"INVASIVE"
 geo_pts <- geo_pts %>% arrange(establishmentMeans)
   # sort by coordinate uncertainty
 geo_pts$coordinateUncertaintyInMeters <-
@@ -452,7 +454,7 @@ write.csv(summary, file.path(main_dir,data,
 # Split by species to save
 ################################################################################
 
-# split records points to create one CSV for each target taxon
+# split records to create one CSV for each target taxon
 sp_split <- split(geo_pts2, as.factor(geo_pts2$taxon_name_accepted))
 names(sp_split) <- gsub(" ","_",names(sp_split))
 names(sp_split) <- gsub("\\.","",names(sp_split))
