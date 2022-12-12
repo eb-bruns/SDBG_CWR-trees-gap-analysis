@@ -31,7 +31,7 @@ if (Sys.info()[4] == "Africa.local") {
   main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
   # OPTIONAL: set local working directory, for trialing locally before saving
   #   to main working directory
-  local_dir <- "./Desktop/*work"
+  local_dir <- "./Desktop/*work/NorthAm-CWR"
   # set location for login information (e.g., for GBIF)
   log_loc <- file.path(local_dir, "IMLS_passwords.txt")
   # prints computer name, to let you know you're in the right spot
