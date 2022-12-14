@@ -77,7 +77,7 @@ distinct <- dplyr::distinct
 #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
 
 # or use 0-set_working_directory.R script:
-source("SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
+source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
 
 # set folders where you have raw data (in) and want processed data to go (out)
 exsitu_dir <- paste0(main_dir,"/ex-situ_data")

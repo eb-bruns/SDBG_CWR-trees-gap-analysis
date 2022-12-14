@@ -57,7 +57,7 @@ rm(my.packages)
 #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
 
 # or use 0-set_working_directory.R script:
-source("SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
+source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
 
 # set up file structure within your main working directory
 data <- "occurrence_data"
