@@ -13,7 +13,8 @@ lapply(my.packages, require, character.only=TRUE)
 ## assign main working directory
 main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
 # set up file paths
-path.pts <- file.path(main_dir,"OLD-occurrence_points","OUTPUTS_FROM_R","taxon_edited_points")
+path.pts <- file.path(main_dir,"occurrence_data","standardized_occurrence_data",
+                      "taxon_edited_points")
 path.sdm <- file.path(main_dir,"gis_layers","PNAS_2020_SDMs")
 #path.out.figs <- file.path(local_dir,"interactive_maps")
 
@@ -23,9 +24,9 @@ path.sdm <- file.path(main_dir,"gis_layers","PNAS_2020_SDMs")
 #data(CucurbitaData)
 #str(CucurbitaData)
   # read in data
-JcalData <- read.csv(file.path(main_dir,path.pts,"Juglans_californica.csv"))
-JhinData <- read.csv(file.path(main_dir,path.pts,"Juglans_hindsii.csv"))
-JmajData <- read.csv(file.path(main_dir,path.pts,"Juglans_major.csv"))
+JcalData <- read.csv(file.path(path.pts,"Juglans_californica.csv"))
+JhinData <- read.csv(file.path(path.pts,"Juglans_hindsii.csv"))
+JmajData <- read.csv(file.path(path.pts,"Juglans_major.csv"))
 JData <- rbind(JmajData,JcalData,JhinData)
 str(JData)
   # edit to match format needed for GapAnalysis
@@ -33,7 +34,7 @@ JData <- JData %>%
   dplyr::mutate(database = recode(database,
                            "Ex_situ" = "G",
                            .default = "H")) %>%
-  dplyr::rename(species = taxon_name_acc,
+  dplyr::rename(species = taxon_name_accepted,
          latitude = decimalLatitude,
          longitude = decimalLongitude,
          type = database) %>%
@@ -51,9 +52,9 @@ speciesList
 #CucurbitaRasters <- raster::unstack(CucurbitaRasters)
 #str(CucurbitaRasters)
   # read in SDM output rasters and stack
-JcalRaster <- raster(file.path(main_dir,path.sdm,"Juglans_californica_PNAS_2020_SDM.tif"))
-JhinRaster <- raster(file.path(main_dir,path.sdm,"Juglans_hindsii_PNAS_2020_SDM.tif"))
-JmajRaster <- raster(file.path(main_dir,path.sdm,"Juglans_major_PNAS_2020_SDM.tif"))
+JcalRaster <- raster(file.path(path.sdm,"Juglans_californica_PNAS_2020_SDM.tif"))
+JhinRaster <- raster(file.path(path.sdm,"Juglans_hindsii_PNAS_2020_SDM.tif"))
+JmajRaster <- raster(file.path(path.sdm,"Juglans_major_PNAS_2020_SDM.tif"))
 JRasters <- list(JmajRaster,JcalRaster,JhinRaster)
 str(JRasters)
 
@@ -72,6 +73,20 @@ ProtectedAreas <- raster(file.path(
 ##Obtaining ecoregions shapefile
 data(ecoregions)
 head(ecoregions)
+
+
+### TESTING
+ERSex_df <- ERSex(Species_list=speciesList,
+                  Occurrence_data=JData,
+                  Raster_list=JRasters,
+                  Buffer_distance=50000,
+                  Ecoregions_shp=ecoregions,
+                  Gap_Map=TRUE)
+
+
+
+
+
 
 ##Running all three ex situ gap analysis steps using FCSex function
 FCSex_df <- FCSex(Species_list=speciesList,

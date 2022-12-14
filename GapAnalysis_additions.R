@@ -5,7 +5,7 @@
 ### Funding:
 
 ### Creation date: 17 November 2022
-### Last full check and update:
+### Last full check and update:_________________
 ### R version 4.2.2
 
 ### DESCRIPTION:
@@ -27,7 +27,7 @@
 
 my.packages <- c('GapAnalysis', 'dplyr', 'sp', 'tmap', 'data.table', 'sf',
   'methods', 'geosphere', 'data.table','fasterize', 'rmarkdown', 'knitr',
-  'rgdal', 'rgeos', 'kableExtra', 'DT')
+  'rgdal', 'rgeos', 'kableExtra', 'DT', 'textclean')
 # install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
     rm(my.packages)
@@ -39,108 +39,143 @@ lapply(my.packages, require, character.only=TRUE)
 # either set manually:
 #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
 # or use 0-1_set_workingdirectory.R script:
-source("./Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-1_set_working_directory.R")
+source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
 
 # set up file paths we'll use in this script
-path.pts <- file.path(main_dir,"OLD-occurrence_points","OUTPUTS_FROM_R","taxon_edited_points")
+path.pts <- file.path(main_dir,"occurrence_data","standardized_occurrence_data",
+                      "taxon_edited_points")
+path.pa <- file.path(main_dir,"gis_layers")
 path.sdm <- file.path(main_dir,"gis_layers","PNAS_2020_SDMs")
 
 # set up file structure within your main working directory
-data <- "occurrence_data"
-raw <- "raw_occurrence_data"
-standard <- "standardized_occurrence_data"
+#data <- "occurrence_data"
+#raw <- "raw_occurrence_data"
+#standard <- "standardized_occurrence_data"
 
 ################################################################################
-# Load or create target taxa list
+# Load functions
 ################################################################################
 
-## IF YOU HAVE CSV OF TARGET TAXA AND SYNONYMS:
-# read in taxa list
-taxon_list <- read.csv(file.path(main_dir,"target_taxa_with_synonyms.csv"),
-  header = T, colClasses="character")
-head(taxon_list)
-  # remove a couple target taxa that have no occurrence data
-  taxon_list <- taxon_list %>%
-    filter(taxon_name_accepted != "Carya x ludoviciana")
+# point to my forked version of the GapAnalysis package, with some updates:
+source("GapAnalysis/R/ERSex.R")
 
-# list of target taxon names (accepted)
-taxon_names <- sort(unique(taxon_list$taxon_name_accepted))
-length(taxon_names) #95
-
-## IF YOU HAVE JUST ONE OR A FEW TARGET TAXA, CREATE A LIST BY HAND:
-#taxon_names <- c("Quercus havardii")
-#length(taxon_names)
 
 ################################################################################
-# Read in data
+# Read in and set up data
 ################################################################################
 
-## occurrence point data
-
-# compiled using 2-0_get_occurrence_data.R & 3-0_compile_occurrence_data.R
-# read in data for each species and combine into one dataframe
-all_occ <- data.frame()
-for(i in 1:length(taxon_names)){
-  taxon_nm <- gsub(" ","_",taxon_names[i])
-  taxon_occ <- read.csv(file.path(path.pts,paste0(taxon_nm,".csv")))
-  all_occ <- rbind(all_occ, taxon_occ)
-}
-head(all_occ)
-
+## Occurrence point data
+# compiled using 3-get_occurrence_data.R + 4-compile_occurrence_data.R + 
+#   5-refine_occurrence_data.R
+# read in data for each target taxon and combine into one dataframe
+taxon_files <- list.files(path=path.pts, ignore.case=FALSE, full.names=TRUE, 
+                          recursive=TRUE)
+taxon_pts <- lapply(taxon_files, read.csv, header = T, na.strings = c("","NA"),
+                   colClasses = "character")
+occ_raw <- Reduce(bind_rows, taxon_pts)
+table(occ_raw$database)
+# filter data based on flagging columns added in 5-refine_occurrence_data.R
+occurrenceData <- occ_raw %>%
+  mutate(
+    .cen = as.logical(.cen),
+    .urb = as.logical(.urb),
+    .inst = as.logical(.inst),
+    .con = as.logical(.con),
+    .outl = as.logical(.outl),
+    #.gtsnative = as.logical(.gtsnative),
+    #.rlnative = as.logical(.rlnative),
+    .yr1950 = as.logical(.yr1950),
+    .yr1980 = as.logical(.yr1980),
+    .yrna = as.logical(.yrna)
+  ) %>%
+  # select or deselect these filters as desired:
+  filter(
+    #database == "Ex_situ" |
+    (.cen & .inst & .con & .outl &
+      #.urb & .yr1950 & .yr1980 & .yrna &
+      #(.gtsnative | is.na(.gtsnative)) &
+      #(.rlnative  | is.na(.rlnative)) &
+      #(.rlintroduced | is.na(.rlintroduced)) &
+      basisOfRecord != "FOSSIL_SPECIMEN" & 
+        basisOfRecord != "LIVING_SPECIMEN" &
+      establishmentMeans != "INTRODUCED" & 
+        establishmentMeans != "MANAGED" &
+        establishmentMeans != "CULTIVATED" &
+      latlong_countryCode %in% c("US","CA","MX"))
+  )
+table(occurrenceData$database)
 # edit data to match format needed for GapAnalysis
-all_occ <- all_occ %>%
-  dplyr::mutate(database = recode(database,
+occurrenceData <- occurrenceData %>%
+  mutate(database = recode(database,
                            "Ex_situ" = "G",
                            .default = "H")) %>%
-  dplyr::rename(species = taxon_name_acc,
+  rename(species = taxon_name_accepted,
          latitude = decimalLatitude,
          longitude = decimalLongitude,
          type = database) %>%
   dplyr::select(species,latitude,longitude,type)
-all_occ$species <- gsub(" ","_",all_occ$species)
-str(all_occ)
+occurrenceData$species <- gsub(" ","_",occurrenceData$species)
+str(occurrenceData)
+# list of taxa with occurrence data
+occTaxonList <- unique(occurrenceData$species)
+occTaxonList
 
-## species list input for GapAnalysis
-speciesList <- unique(all_occ$species)
-speciesList
+## Obtaining raster_list
+# read in SDMs and stack
+raster_files <- list.files(path=path.sdm, ignore.case=FALSE, full.names=TRUE, 
+                          recursive=TRUE)
+rasterList <- lapply(raster_files, raster)
+# list of taxa with SDM data
+sdmTaxonList <- mgsub(raster_files,
+                      c(paste0(path.sdm,"/"),"_PNAS_2020_SDM.tif"),
+                      "")
 
-##Obtaining raster_list
-#data(CucurbitaRasters)
-#CucurbitaRasters <- raster::unstack(CucurbitaRasters)
-#str(CucurbitaRasters)
-  # read in SDM output rasters and stack
-JcalRaster <- raster(file.path(main_dir,path.sdm,"Juglans_californica_PNAS_2020_SDM.tif"))
-JhinRaster <- raster(file.path(main_dir,path.sdm,"Juglans_hindsii_PNAS_2020_SDM.tif"))
-JmajRaster <- raster(file.path(main_dir,path.sdm,"Juglans_major_PNAS_2020_SDM.tif"))
-JRasters <- list(JmajRaster,JcalRaster,JhinRaster)
-str(JRasters)
-
-##Obtaining protected areas raster
-  # this seems to download the 10 arc minutes version instead of 2.5 arc min
+## Obtaining protected areas raster
+# this seems to download the 10 arc minutes version instead of 2.5 arc min...
 data(ProtectedAreas)
 str(ProtectedAreas)
-  res(ProtectedAreas) # resolution = 0.1666667 0.1666667
-  # so I downloaded from the source to read that in instead...
-# read in PA file from Dataverse:
+res(ProtectedAreas) # 0.1666667 0.1666667
+# ...so I downloaded from the source to read that in instead:
 #   https://dataverse.harvard.edu/dataverse/GapAnalysis
-ProtectedAreas <- raster(file.path(
-  main_dir,"gis_layers/wdpa_reclass.tif"))
-  res(ProtectedAreas) # resolution = 0.04166667 0.04166667
+ProtectedAreas <- raster(file.path(path.pa,"wdpa_reclass.tif"))
+res(ProtectedAreas) # 0.04166667 0.04166667
 
-##Obtaining ecoregions shapefile
+## Obtaining ecoregions shapefile fron GapAnalysis package
 data(ecoregions)
 head(ecoregions)
 
-##Running all three ex situ gap analysis steps using FCSex function
-FCSex_df <- FCSex(Species_list=speciesList,
-                  Occurrence_data=JData,
-                  Raster_list=JRasters,
+
+################################################################################
+# Run functions in GapAnalysis package
+################################################################################
+
+
+### TESTING
+testTaxon <- sdmTaxonList[5]
+ERSex_df <- ERSex(Species_list=testTaxon,#sdmTaxonList
+                  Occurrence_data=occurrenceData,
+                  Raster_list=rasterList,
+                  Buffer_distance=50000,
+                  Ecoregions_shp=ecoregions,
+                  Gap_Map=TRUE)
+
+
+
+
+
+
+
+
+## Running all three ex situ gap analysis steps using FCSex function
+FCSex_df <- FCSex(Species_list=sdmTaxonList,
+                  Occurrence_data=occurrenceData,
+                  Raster_list=rasterList,
                   Buffer_distance=50000,
                   Ecoregions_shp=ecoregions
 )
 FCSex_df
 
-##Running all three in situ gap analysis steps using FCSin function
+## Running all three in situ gap analysis steps using FCSin function
 FCSin_df <- FCSin(Species_list=speciesList,
                   Occurrence_data=JData,
                   Raster_list=JRasters,
@@ -148,15 +183,18 @@ FCSin_df <- FCSin(Species_list=speciesList,
                   Pro_areas=ProtectedAreas)
 FCSin_df
 
-##Combine gap analysis metrics
+## Combine gap analysis metrics
 FCSc_mean_df <- FCSc_mean(FCSex_df = FCSex_df,FCSin_df = FCSin_df)
 FCSc_mean_df
 
-##Running Conservation indicator across taxa
+## Running Conservation indicator across taxa
 indicator_df <- indicator(FCSc_mean_df)
 indicator_df
 
 
+################################################################################
+# Run functions in GapAnalysis package
+################################################################################
 
 
 ##EBB: Testing creating a rasterized buffer layer to use instead of SDM
