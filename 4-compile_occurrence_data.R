@@ -454,6 +454,18 @@ write.csv(summary, file.path(main_dir,data,
 # Split by species to save
 ################################################################################
 
+# first, if you're working at the taxon level, add infrataxon records to their 
+# parent species too
+add_again <- geo_pts2 %>% filter(grepl("var\\.|subsp\\.", taxon_name_accepted))
+unique(add_again$taxon_name_accepted)
+add_again$taxon_name_accepted <- gsub(" var\\.*\\s.+", "",
+                                      add_again$taxon_name_accepted)
+unique(add_again$taxon_name_accepted)
+geo_pts2 <- rbind(geo_pts2,add_again)
+table(geo_pts2$database)
+# BIEN    Ex_situ   FIA      GBIF     iDigBio   IUCN_RedList  NorthAm_herbaria
+# 12824   1530      160120   177601   2755      4947          17201
+
 # split records to create one CSV for each target taxon
 sp_split <- split(geo_pts2, as.factor(geo_pts2$taxon_name_accepted))
 names(sp_split) <- gsub(" ","_",names(sp_split))
