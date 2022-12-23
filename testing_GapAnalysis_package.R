@@ -11,11 +11,11 @@ my.packages <- c('dplyr', 'sp', 'tmap', 'data.table', 'sf', 'methods',
 lapply(my.packages, require, character.only=TRUE)
 
 ## assign main working directory
-main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
+source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
 # set up file paths
-path.pts <- file.path(main_dir,"occurrence_data","standardized_occurrence_data",
+path.pts <- file.path(main_dir,occ_dir,"standardized_occurrence_data",
                       "taxon_edited_points")
-path.sdm <- file.path(main_dir,"gis_layers","PNAS_2020_SDMs")
+path.sdm <- file.path(main_dir,gis_dir,"PNAS_2020_SDMs")
 #path.out.figs <- file.path(local_dir,"interactive_maps")
 
 ### TESTING WITH JUGLANS CALIFORNICA & J. HINDSII
