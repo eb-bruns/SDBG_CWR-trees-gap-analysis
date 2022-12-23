@@ -37,7 +37,8 @@
 ################################################################################
 
 my.packages <- c(
-  "tidyverse","rnaturalearth","sp","tools","terra","textclean"
+  "tidyverse","rnaturalearth","sp","tools","terra","textclean",
+  "CoordinateCleaner"
 )
 #install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
@@ -98,13 +99,13 @@ summary_tbl <- data.frame(
   taxon_name_accepted = "start", 
   total_pts = "start",
   unflagged_pts = "start", 
+  selected_pts = "start", 
   .cen = "start", 
   .urb = "start",
   .inst = "start",
   .con = "start", 
   .outl = "start", 
-  .gtsnative = "start", 
-  .rlnative = "start",
+  .nativectry = "start", 
   .yr1950 = "start", 
   .yr1980 = "start",
   .yrna = "start", 
@@ -138,7 +139,7 @@ summary_tbl <- data.frame(
     #flag columns
     "latlong_countryCode",
     ".cen",".urb",".inst",".con",".outl",
-    ".gtsnative",".rlnative",
+    ".nativectry",
     ".yr1950",".yr1980",".yrna"
   )
 
@@ -163,29 +164,38 @@ for (i in 1:length(taxon_list)){
   taxon_now <- intersect(taxon_spdf,world_polygons)
   taxon_now <- as.data.frame(taxon_now)
 
-  ## CHECK POINT LOCATION AGAINST "ACCEPTED" COUNTRY DISTRUBUTION FROM 2 SOURCES
-  ## GlobalTreeSearch
-  # species native country distribution list from GTS
-  gts_ctry <- unique(unlist(strsplit(native_dist$gts_native_dist_iso2c[
+  ## CHECK POINT LOCATION AGAINST "ACCEPTED" COUNTRY DISTRUBUTION
+  #  this previously checked GlobalTreeSearch and IUCN Red List separately, but
+  #     I have now combined into one - old code is commented out below
+  ctry <- unique(unlist(strsplit(native_dist$all_native_dist_iso2[
     native_dist$taxon_name_accepted==taxon_nm], "; ")))
-  if(!is.na(gts_ctry[1])){
-  ## flag records where GTS country doesn't match record's coordinate location
-  taxon_now <- taxon_now %>% mutate(.gtsnative=(ifelse(
-    ISO %in% gts_ctry, TRUE, FALSE)))
-  } else {
-    taxon_now$.gtsnative <- NA
-  }
-  ## IUCN Red List
-  # species native country distribution list from RL
-  rl_ctry <- unique(unlist(strsplit(native_dist$rl_native_dist_iso2c[
-    native_dist$taxon_name_accepted==taxon_nm], "; ")))
-  if(!is.na(rl_ctry[1])){
+  if(!is.na(ctry[1])){
   ## flag records where RL country doesn't match record's coordinate location
-  taxon_now <- taxon_now %>% mutate(.rlnative=(ifelse(
-    ISO %in% rl_ctry, TRUE, FALSE)))
+    taxon_now <- taxon_now %>% mutate(.nativectry=(ifelse(
+      ISO %in% ctry, TRUE, FALSE)))
   } else {
-    taxon_now$.rlnative <- NA
+    taxon_now$.nativectry <- NA
   }
+  ## GlobalTreeSearch: species native country distribution list from GTS
+  #gts_ctry <- unique(unlist(strsplit(native_dist$gts_native_dist_iso2c[
+  #  native_dist$taxon_name_accepted==taxon_nm], "; ")))
+  #if(!is.na(gts_ctry[1])){
+  ## flag records where GTS country doesn't match record's coordinate location
+  #taxon_now <- taxon_now %>% mutate(.gtsnative=(ifelse(
+  #  ISO %in% gts_ctry, TRUE, FALSE)))
+  #} else {
+  #  taxon_now$.gtsnative <- NA
+  #}
+  ## IUCN Red List: species native country distribution list from RL
+  #rl_ctry <- unique(unlist(strsplit(native_dist$rl_native_dist_iso2c[
+  #  native_dist$taxon_name_accepted==taxon_nm], "; ")))
+  #if(!is.na(rl_ctry[1])){
+  ## flag records where RL country doesn't match record's coordinate location
+  #taxon_now <- taxon_now %>% mutate(.rlnative=(ifelse(
+  #  ISO %in% rl_ctry, TRUE, FALSE)))
+  #} else {
+  #  taxon_now$.rlnative <- NA
+  #}
 
   ## SERIES OF VETTED TESTS FROM CoordinateCleaner PACKAGE
   # Geographic Cleaning of Coordinates from Biologic Collections
@@ -248,28 +258,40 @@ for (i in 1:length(taxon_list)){
   taxon_now <- taxon_now %>% 
     rename("latlong_countryCode" = "ISO") %>%
     dplyr::select(all_of(col_names))
-  # df of unflagged points
-  unflagged <- taxon_now %>%
+  # df of completely unflagged points
+  total_unflagged <- taxon_now %>%
     filter(.cen & .urb &
-       .inst & .con & .outl & .yr1950 & .yr1980 & .yrna &
-      (.gtsnative | is.na(.gtsnative)) &
-      (.rlnative  | is.na(.rlnative)) &
-      basisOfRecord != "FOSSIL_SPECIMEN" & basisOfRecord != "LIVING_SPECIMEN" &
-      establishmentMeans != "INTRODUCED" & establishmentMeans != "MANAGED" &
-      establishmentMeans != "CULTIVATED" #& establishmentMeans != "INVASIVE"
+             .inst & .con & .outl & .yr1950 & .yr1980 & .yrna &
+             (.nativectry | is.na(.nativectry)) &
+             basisOfRecord != "FOSSIL_SPECIMEN" & 
+             basisOfRecord != "LIVING_SPECIMEN" &
+             establishmentMeans != "INTRODUCED" & 
+             establishmentMeans != "MANAGED" &
+             establishmentMeans != "CULTIVATED" #& establishmentMeans != "INVASIVE"
+    )
+  # optional df of unflagged points based on selected filters you'd like to use
+  select_unflagged <- taxon_now %>%
+    filter(.cen & .inst & .outl & 
+             #.urb & .con & .yr1950 & .yr1980 & .yrna &
+             (.nativectry | is.na(.nativectry)) &
+             basisOfRecord != "FOSSIL_SPECIMEN" & 
+             basisOfRecord != "LIVING_SPECIMEN" &
+             establishmentMeans != "INTRODUCED" & 
+             establishmentMeans != "MANAGED" &
+             establishmentMeans != "CULTIVATED" #& establishmentMeans != "INVASIVE"
     )
   # add to summary table
   summary_add <- data.frame(
     taxon_name_accepted = taxon_list[i],
     total_pts = nrow(taxon_now),
-    unflagged_pts = nrow(unflagged),
+    unflagged_pts = nrow(total_unflagged),
+    selected_pts = nrow(select_unflagged),
     .cen = sum(!taxon_now$.cen),
     .urb = sum(!taxon_now$.urb),
     .inst = sum(!taxon_now$.inst),
     .con = sum(!taxon_now$.con),
     .outl = sum(!taxon_now$.outl),
-    .gtsnative = sum(!taxon_now$.gtsnative),
-    .rlnative = sum(!taxon_now$.rlnative),
+    .nativectry = sum(!taxon_now$.nativectry),
     .yr1950 = sum(!taxon_now$.yr1950),
     .yr1980 = sum(!taxon_now$.yr1980),
     .yrna = sum(!taxon_now$.yrna),
