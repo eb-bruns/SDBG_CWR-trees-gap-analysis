@@ -38,7 +38,8 @@ lapply(my.packages, require, character.only=TRUE)
 
 # either set manually:
 #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
-  
+#taxa_dir <- "taxa_metadata"
+
 # or use 0-set_working_directory.R script:
 source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
   
@@ -47,16 +48,13 @@ source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_
 ################################################################################
 
 # read in taxa list
-taxon_list <- read.csv(file.path(main_dir,"target_taxa_with_synonyms.csv"), 
+taxon_list <- read.csv(file.path(main_dir,taxa_dir,
+                                 "target_taxa_with_synonyms.csv"), 
                        header = T,na.strings=c("","NA"),colClasses="character")
 # keep only accepted taxa
 taxon_list <- taxon_list %>% 
   filter(taxon_name_status=="Accepted")
-nrow(taxon_list) #95
-
-# create new folder if not already present
-if(!dir.exists(file.path(main_dir,"taxa_metadata")))
-  dir.create(file.path(main_dir,"taxa_metadata"),recursive=T)
+nrow(taxon_list) #96
 
 ################################################################################
 # Get BGCI GlobalTreeSearch (GTS) native country data
@@ -71,7 +69,7 @@ if(!dir.exists(file.path(main_dir,"taxa_metadata")))
   # Move all downloads to your "taxa_metadata" folder
 
 # read in and compile GTS data
-file_list <- list.files(path = file.path(main_dir,"taxa_metadata"),
+file_list <- list.files(path = file.path(main_dir,taxa_dir),
   pattern = "globaltreesearch_results", full.names = T)
 file_dfs <- lapply(file_list, read.csv, colClasses = "character",
   na.strings=c("","NA"),strip.white=T)
@@ -147,7 +145,7 @@ no_match
   #   simply "redlist_species_data"
 
 # read in downloaded RL data for country-level species distribution
-countries <- read.csv(file.path(main_dir,"taxa_metadata",
+countries <- read.csv(file.path(main_dir,taxa_dir,
     "redlist_species_data","countries.csv"),
     colClasses = "character",na.strings=c("","NA"),strip.white=T)
 
@@ -195,7 +193,7 @@ native_dist <- taxon_list %>%
 
 # see which target taxa have no distribution data matched
 native_dist[is.na(native_dist$gts_native_dist) &
-            is.na(native_dist$rl_native_dist),]$taxon_name_acc #40
+            is.na(native_dist$rl_native_dist),]$taxon_name_accepted #40
   # *species* (exclu. taxa) without country-level distribution data:
     #"Asimina incana"
     #"Asimina longifolia"
@@ -213,11 +211,65 @@ native_dist[is.na(native_dist$gts_native_dist) &
     #"Prunus minutiflora"
     #"Prunus pumila"
     #"Prunus texana"
+  # you can add data for these manually if you'd like...
+add_manually <- data.frame(
+  taxon_name_accepted = c("Asimina incana", "Asimina longifolia",
+                          "Asimina manasota", "Asimina pygmaea",
+                          "Asimina reticulata", "Asimina x nashii",                   
+                          "Carya carolinae-septentrionalis", "Carya ovalis",
+                          "Carya x lecontei", "Carya x ludoviciana",
+                          "Castanea x neglecta", "Corylus californica",                
+                          "Pistacia texana", "Prunus andersonii",
+                          "Prunus fasciculata", "Prunus geniculata",                  
+                          "Prunus havardii", "Prunus minutiflora",
+                          "Prunus pumila", "Prunus texana",                      
+                          "Prunus x orthosepala"),
+  manual_native_dist = c("United States","United States",
+                         "United States","United States",
+                         "United States","United States",
+                         "United States","Canada; United States",
+                         "Mexico; United States","United States",
+                         "United States","Canada; United States",
+                         "Mexico; United States","Mexico; United States",
+                         "Mexico; United States","United States",
+                         "Mexico; United States","Mexico; United States",
+                         "Canada; United States","United States",
+                         "United States"),
+  manual_native_dist_iso2c = c("US","US",
+                               "US","US",
+                               "US","US",
+                               "US","CA; US",
+                               "MX; US","US",
+                               "US","CA; US",
+                               "MX; US","MX; US",
+                               "MX; US","US",
+                               "MX; US","MX; US",
+                               "CA; US","US",
+                               "US")
+)
+native_dist <- left_join(native_dist,add_manually)
+  # for the infrataxa without countries, add them from species
+native_dist <- native_dist %>%
+  separate("taxon_name_accepted","species_name",sep=" var\\.| subsp\\.",remove=F)
+native_dist$flag <- NA
+spp <- native_dist %>%
+  filter(taxon_name_accepted == species_name) %>%
+  dplyr::select(-taxon_name_accepted)
+still_no_dist <- native_dist[is.na(native_dist$gts_native_dist) &
+                             is.na(native_dist$rl_native_dist) &
+                             is.na(native_dist$manual_native_dist),
+                             c("taxon_name_accepted","species_name")] #19
+still_no_dist <- left_join(still_no_dist,spp)
+still_no_dist$flag <- "Distribution info added from parent species"
+native_dist <- native_dist %>% filter(!(taxon_name_accepted %in% 
+                                          still_no_dist$taxon_name_accepted))
+native_dist <- rbind(native_dist,still_no_dist)
 
-# create columns that combine GTS and RL country data
+# create columns that combine GTS, RL, and manually-added country data
   # full country names
 native_dist$all_native_dist <- paste(
-  native_dist$gts_native_dist,native_dist$rl_native_dist,sep="; ")
+  native_dist$gts_native_dist, native_dist$rl_native_dist,
+  native_dist$manual_native_dist, sep="; ")
 native_dist$all_native_dist <- str_squish(mgsub(native_dist$all_native_dist,
     c("NA; ","; NA","NA"),""))
 native_dist$all_native_dist <- gsub(", ","~ ",native_dist$all_native_dist)
@@ -227,9 +279,11 @@ t <- setDT(native_dist)[,list(all_native_dist =
 native_dist <- native_dist %>% dplyr::select(-all_native_dist) %>% full_join(t)
 native_dist$all_native_dist <- gsub(", ","; ",native_dist$all_native_dist)
 native_dist$all_native_dist <- gsub("~ ",", ",native_dist$all_native_dist)
+unique(native_dist$all_native_dist)
   # ISO country code abbreviations
 native_dist$all_native_dist_iso2 <- paste(native_dist$gts_native_dist_iso2c,
-  native_dist$rl_native_dist_iso2c,sep="; ")
+  native_dist$rl_native_dist_iso2c, native_dist$manual_native_dist_iso2c,
+  sep="; ")
 native_dist$all_native_dist_iso2 <- str_squish(mgsub(
   native_dist$all_native_dist_iso2, c("NA; ","; NA","NA"),""))
 t <- setDT(native_dist)[,list(all_native_dist_iso2 =
@@ -240,27 +294,30 @@ native_dist <- native_dist %>%
   full_join(t)
 native_dist$all_native_dist_iso2 <- gsub(
   ", ","; ",native_dist$all_native_dist_iso2)
+unique(native_dist$all_native_dist_iso2)
 
 ################################################################################
 # *Optionally* Add additional native countries manually
 ################################################################################
 
+# this is the old way to add countries if you're doing the same for all taxa...
+
 # adding United States to all species, since that is our target region;
 # can edit or skip depending on your needs
   # rows with no countries:
-native_dist[which(native_dist$all_native_dist == ""),
-            "all_native_dist"] <- "United States"
-native_dist[which(native_dist$all_native_dist == ""),
-            "all_native_dist_iso2"] <- "US"
+#native_dist[which(native_dist$all_native_dist == ""),
+#            "all_native_dist"] <- "United States"
+#native_dist[which(native_dist$all_native_dist == ""),
+#            "all_native_dist_iso2"] <- "US"
   # rows with countries but missing the US:
-native_dist[which(!grepl("United States",native_dist$all_native_dist)),
-            "all_native_dist"] <- "United States"
-native_dist[which(!grepl("United States",native_dist$all_native_dist)),
-            "all_native_dist_iso2"] <- "US"
+#native_dist[which(!grepl("United States",native_dist$all_native_dist)),
+#            "all_native_dist"] <- "United States"
+#native_dist[which(!grepl("United States",native_dist$all_native_dist)),
+#            "all_native_dist_iso2"] <- "US"
 
 # check it out
-head(native_dist)
-unique(native_dist$all_native_dist)
+#head(native_dist)
+#unique(native_dist$all_native_dist)
 
 ################################################################################
 # Write file
