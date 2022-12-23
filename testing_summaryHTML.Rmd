@@ -12,11 +12,13 @@ smooth_scroll: no
 ---
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 #Set up working directory
-main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
+#main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
+source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
+
 #And additional file paths for point data and SDM folders
-path.pts <- file.path(main_dir,"OLD-occurrence_points","OUTPUTS_FROM_R",
+path.pts <- file.path(main_dir,occ_dir,"standardized_occurrence_points",
                       "taxon_edited_points")
-path.gis <- file.path(main_dir,"gis_layers")
+path.gis <- file.path(main_dir,gis_dir)
 
 #Read in occurrence point data
 JcalData <- read.csv(file.path(path.pts,"Juglans_californica.csv"))
