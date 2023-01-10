@@ -10,7 +10,7 @@
 # (subcontracted to The Morton Arboretum), with support from
 # Botanic Gardens Conservation International U.S.
 
-### Last updated: XX December 2022
+### Last updated: 3 January 2023
 ### R version 4.2.2
 
 ### DESCRIPTION:
@@ -23,16 +23,17 @@
 # Occurrence points from 5-refine_occurrence_data.R
 
 ### OUTPUTS:
-# spp_interactive_maps folder with HTML map for each target species
-#   (e.g., Quercus_lobata_leafet_map.html), which can be downloaded and opened
-#   in your browser for exploring
+# interactive_maps/visualize_occurrence_data folder with HTML map for each 
+#   target taxa (e.g., Quercus_lobata_occurrence_map.html), which can be 
+#   downloaded and opened in your browser for exploring
 
 ################################################################################
 # Load libraries
 ################################################################################
 
 rm(list=ls())
-my.packages <- c("ggplot2","maps","leaflet","RColorBrewer","dplyr","raster")
+my.packages <- c("ggplot2","maps","leaflet","RColorBrewer","dplyr","raster",
+                 "terra")
 #install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
   rm(my.packages)
@@ -67,18 +68,17 @@ taxon_dist <- read.csv(file.path(main_dir,taxa_dir,
   "target_taxa_with_native_dist.csv"), header = T, na.strings=c("","NA"),
   colClasses="character")
 taxon_list <- left_join(taxon_list,taxon_dist)
-no_sdm <- c("Asimina incana","Asimina longifolia","Asimina obovata",
-            "Asimina parviflora","Asimina pygmaea","Asimina reticulata",
-            "Asimina tetramera","Juglans jamaicensis","Persea palustris",
-            "Prunus serotina") # this one throws an error because it is too large?
+  ### UPDATE THIS:
+no_sdm <- c("Carya x ludoviciana","Prunus x orthosepala","Carya x lecontei",
+            "Asimina x nashii","Juglans microcarpa var. stewartii",
+            "Prunus serotina var. eximia","Asimina tetramera",
+            "Castanea x neglecta","Prunus eremophila")
   # select accepted taxa and remove one that has no occurrence points
 target_taxa <- taxon_list %>%
   dplyr::filter(taxon_name_status == "Accepted" &
-                taxon_name_accepted != "Prunus +orthosepala" &
-      # optionally, remove species with no SDM from 2020 anlysis
-                !grepl("\\+",taxon_name_accepted) &
+      # optionally, remove species with no SDM (list created manually above)
                 !(taxon_name_accepted %in% no_sdm))
-  nrow(target_taxa) #86
+  nrow(target_taxa) #87
 spp.all <- unique(gsub(" ","_",target_taxa$taxon_name_accepted))
 spp.all
   # list of native countries for each target species
@@ -91,11 +91,12 @@ world_polygons <- vect(file.path(path.gis,
 if(!dir.exists(output.maps)) dir.create(output.maps, recursive=T)
 
 ### cycle through each species file and create map
-for(i in 67:length(spp.all)){
+for(i in 32:length(spp.all)){
 
   # read in records
-  spp.now <- read.csv(file.path(path.pts, paste0(spp.all[i], ".csv")))
-
+  spp.now <- read.csv(file.path(path.pts, paste0(gsub("\\.","",spp.all[i]), 
+                                                 ".csv")))
+  
   #target.iso <- unlist(strsplit(countries[i],split="; "))
   #target_countries <- world_polygons[world_polygons$IOS %in% target.iso,]
 
@@ -106,15 +107,14 @@ for(i in 67:length(spp.all)){
                "IUCN_RedList","FIA","BIEN"))
   spp.now <- spp.now %>% arrange(desc(database))
   # create color palette
-  colors <- c("#188562","#147053","#115e46","#0d4735","#093326")
+  colors <- c("#adbb3f","#819756","#5fbb9a","#6a9ebd","#7b83cc","#7264de",
+              "#3c2c7a")
   database.pal <- colorFactor(palette=colors,
-    levels = c("Ex_situ",#"FIA",
-               "GBIF","US_Herbaria","iDigBio",
-               #"BISON","BIEN",
-               "IUCN_RedList"))
+    levels = c("Ex_situ","GBIF","NorthAm_herbaria","iDigBio",
+               "IUCN_RedList","FIA","BIEN"))
 
-  ## read in species distribution models
-    # this is the old code for getting SDMs from Khoury et al 2020 (PNAS):
+  ## read in species distribution model and select color for mapping
+    ## this is the old code for using SDMs from Khoury et al 2020 (PNAS):
     #genus <- strsplit(spp.now$taxon_name_accepted[1]," ")[[1]][1]
     #taxon <- gsub(" ","%20",spp.now$taxon_name_accepted[1])
     #raster_path <- paste0(
@@ -124,9 +124,12 @@ for(i in 67:length(spp.all)){
     #  destfile=file.path(path.rasters,paste0(spp.all[i], "_PNAS_2020_SDM.tif")))
   spp.raster <- raster(file.path(
     path.rasters,paste0(spp.all[i],"-spdist_thrsld_median.tif")))
-    # select color for raster when mapped
-  raster.pal <- colorNumeric("#c2a763",values(spp.raster),na.color = "transparent")
-
+  # reclassification of 0 to NA, so we don't view the ecoregions layer
+  # this was not needed for the 2020 PNAS SDMs
+  spp.raster[spp.raster==0] <- NA
+  # set color palette
+  raster.pal <- colorNumeric("#e0aee6",values(spp.raster),na.color = "transparent")
+  
   # create map
   final_map <- leaflet() %>%
     # Base layer groups
@@ -140,7 +143,7 @@ for(i in 67:length(spp.all)){
       If no points turn red when box is checked, there are no points flagged in that category.</br>
       Click each point for more information about the record.",
       position = "topright") %>%
-    # SDM from PNAS 2020
+    # SDM
     addRasterImage(spp.raster,colors=raster.pal,opacity = 0.8) %>%
 	  # Native country outlines
 	  #addPolygons(data = target_countries, fillColor = "transparent",
@@ -362,8 +365,8 @@ for(i in 67:length(spp.all)){
     hideGroup("Recorded prior to 1950 (.yr1950)") %>%
     hideGroup("Recorded prior to 1980 (.yr1980)") %>%
     hideGroup("Year unknown (.yrna)") %>%
-    addLegend(labels = c("Present","Absent"),colors = c("#c2a763","white"),
-      title = "PNAS 2020 SDM", position = "bottomright",
+    addLegend(labels = c("Present","Absent"),colors = c("#e0aee6","white"),
+      title = "Species Distribution Model", position = "bottomright",
       opacity = 0.8) %>%
     addLegend(pal = database.pal, values = unique(spp.now$database),
       title = "Occurrence point</br>source database", position = "bottomright", opacity = 0.8) %>%
@@ -374,8 +377,8 @@ for(i in 67:length(spp.all)){
   final_map
 
   # save map
-  htmlwidgets::saveWidget(map, file.path(output.maps,
-    paste0(spp.all[i], "_leaflet_map.html")))
+  htmlwidgets::saveWidget(final_map, file.path(output.maps,
+    paste0(spp.all[i], "_occurrence_map.html")))
 
   cat("\tEnding ", spp.all[i], ", ", i, " of ", length(spp.all), ".\n\n", sep="")
 }

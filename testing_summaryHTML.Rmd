@@ -12,47 +12,23 @@ smooth_scroll: no
 ---
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 #Set up working directory
-#main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping/"
+## assign main working directory
 source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
-
-#And additional file paths for point data and SDM folders
-path.pts <- file.path(main_dir,occ_dir,"standardized_occurrence_points",
+## set up file paths
+path.pts.raw <- file.path(main_dir,occ_dir,"raw_occurrence_data")
+path.pts <- file.path(main_dir,occ_dir,"standardized_occurrence_data",
                       "taxon_edited_points")
-path.gis <- file.path(main_dir,gis_dir)
+path.sdm <- file.path(main_dir,"sdm_rasters")
 
-#Read in occurrence point data
-JcalData <- read.csv(file.path(path.pts,"Juglans_californica.csv"))
-JhinData <- read.csv(file.path(path.pts,"Juglans_hindsii.csv"))
-JmajData <- read.csv(file.path(path.pts,"Juglans_major.csv"))
-Od <- rbind(JmajData,JcalData,JhinData)
-  #Edit to match format needed for GapAnalysis
-Od <- Od %>%
-  dplyr::mutate(
-    database = recode(database,
-                      "Ex_situ" = "G",
-                      .default = "H")) %>%
-  dplyr::rename(
-    species = taxon_name_acc,
-    latitude = decimalLatitude,
-    longitude = decimalLongitude,
-    type = database) %>%
-  dplyr::select(species,latitude,longitude,type)
-Od$species <- gsub(" ","_",Od$species)
+#Source new versions of scripts with edits
+source("/Users/emily/Documents/GitHub/GapAnalysis/R/SRSex.R")
+source("/Users/emily/Documents/GitHub/GapAnalysis/R/SRSin.R")
 
-#Create list of target taxon names
-Sl <- unique(Od$species)
+source("/Users/emily/Documents/GitHub/GapAnalysis/R/ERSex.R")
 
-#Read in species distribution raster data
-JcalRaster <- raster(file.path(path.gis,"PNAS_2020_SDMs",
-                               "Juglans_californica_PNAS_2020_SDM.tif"))
-JhinRaster <- raster(file.path(path.gis,"PNAS_2020_SDMs",
-                               "Juglans_hindsii_PNAS_2020_SDM.tif"))
-JmajRaster <- raster(file.path(path.gis,"PNAS_2020_SDMs",
-                               "Juglans_major_PNAS_2020_SDM.tif"))
-Rl <- list(JmajRaster,JcalRaster,JhinRaster)
+source("/Users/emily/Documents/GitHub/GapAnalysis/R/FCSex.R")
+source("/Users/emily/Documents/GitHub/GapAnalysis/R/FCSin.R")
 
-#Assign buffer distance
-Buffer_distance <- 50000
 ```
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
@@ -133,36 +109,37 @@ srsinPal <- c("#FFFFFF", "#FA4101") # white to red
 #Re-declare inputs for ease of entering in values for all functions
 
 #In situ
-inSRS <- GapAnalysis::SRSin(Species_list = Sl, Occurrence_data = Od,
+
+inSRS <- SRSin(Species_list = Sl, Occurrence_data = Od,
                             Raster_list = Rl, Pro_areas = Pro_areas, 
                             Gap_Map = TRUE)
 
-inGRS <- GapAnalysis::GRSin(Species_list = Sl, Occurrence_data = Od,
+inGRS <- GRSin(Species_list = Sl, Occurrence_data = Od,
                             Raster_list = Rl, Pro_areas = Pro_areas,
                             Gap_Map = TRUE)
 
-inERS <- GapAnalysis::ERSin(Species_list = Sl, Occurrence_data = Od,
+inERS <- ERSin(Species_list = Sl, Occurrence_data = Od,
                             Raster_list = Rl, Pro_areas = Pro_areas, 
                             Ecoregions_shp = Ecoregions_shp, Gap_Map = TRUE)
 
-inFCS <- GapAnalysis::FCSin(Species_list = Sl, Occurrence_data = Od,
+inFCS <- FCSin(Species_list = Sl, Occurrence_data = Od,
                             Raster_list = Rl, Pro_areas = Pro_areas, 
                             Ecoregions_shp = Ecoregions_shp)
 
 
 #Ex situ
-exSRS <- GapAnalysis::SRSex(Species_list = Sl, Occurrence_data = Od)
+exSRS <- SRSex(Species_list = Sl, Occurrence_data = Od)
 
-exGRS <- GapAnalysis::GRSex(Occurrence_data = Od, Species_list = Sl,
+exGRS <- GRSex(Occurrence_data = Od, Species_list = Sl,
                             Buffer_distance = Buffer_distance,
                             Raster_list = Rl, Gap_Map = TRUE)
 
-exERS <- GapAnalysis::ERSex(Species_list = Sl, Occurrence_data = Od,
+exERS <- ERSex(Species_list = Sl, Occurrence_data = Od,
                             Buffer_distance = Buffer_distance,
                             Raster_list = Rl, Ecoregions_shp = Ecoregions_shp,
                             Gap_Map = TRUE )
 
-exFCS <- GapAnalysis::FCSex(Species_list = Sl,Occurrence_data = Od,
+exFCS <- FCSex(Species_list = Sl,Occurrence_data = Od,
                             Buffer_distance = Buffer_distance,
                             Raster_list = Rl, Ecoregions_shp = Ecoregions_shp)
 
@@ -267,7 +244,7 @@ if(nrow(gd) >0 ){ # be careful with these conditional statements
   gp <- sp::SpatialPoints(coords = gd[,c(3,2)],proj4string = crs(r1))
 
 # could do leaflet here instead
-  leaflet() %>% ....
+#  leaflet() %>% ....
 
 tm_shape(g1, name = "Distribution model, and G buffers")+
   tm_raster(style="cat", title = "Map of GRSex",
@@ -503,18 +480,18 @@ if(length(gEco)>30){ # if more than 30 ecoregions, tmap could not visualize as c
             labels = c("0: Native area", "1: Potential distribution where ecoregions conserved in situ"))+
   tm_shape(g1, name = "Ecoregions not conserved in situ")+
   tm_raster(style = "cat", palette = ecoPal, title = "Ecoregions not conserved in situ"))
-}else{
+#}else{
 ### adding new conditions
-  ifelse(test = length(gEco)== 1 & is.na(gEco[1]),
-         yes = try(tm_shape(r1, name = "Native area and distribution model where ecoregions conserved in situ")+
-  tm_raster(style = "cat", palette = ersBPal, title = "Map of ERSin",
-            labels = c("0: Native area", "1: Potential distribution where ecoregions conserved in situ"))),
-            no = try(tm_shape(r1, name = "Native area and distribution model where ecoregions conserved in situ")+
-  tm_raster(style = "cat", palette = ersBPal, title = "Map of ERSin",
-            labels = c("0: Native area", "1: Potential distribution where ecoregions conserved in situ"))+
-  tm_shape(g1, name = "Ecoregions not conserved in situ")+
-  tm_raster(style = "cat", palette = ecoPal, title = "Ecoregions not conserved in situ"))
-           )
+#  ifelse(test = length(gEco)== 1 & is.na(gEco[1]),
+#         yes = try(tm_shape(r1, name = "Native area and distribution model #where ecoregions conserved in situ")+
+#  tm_raster(style = "cat", palette = ersBPal, title = "Map of ERSin",
+#            labels = c("0: Native area", "1: Potential distribution where #ecoregions conserved in situ"))),
+#            no = try(tm_shape(r1, name = "Native area and distribution model #where ecoregions conserved in situ")+
+#  tm_raster(style = "cat", palette = ersBPal, title = "Map of ERSin",
+#            labels = c("0: Native area", "1: Potential distribution where #ecoregions conserved in situ"))+
+#  tm_shape(g1, name = "Ecoregions not conserved in situ")+
+#  tm_raster(style = "cat", palette = ecoPal, title = "Ecoregions not conserved #in situ"))
+#           )
   }
 
 

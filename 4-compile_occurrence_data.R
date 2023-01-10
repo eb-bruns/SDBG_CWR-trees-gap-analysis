@@ -45,7 +45,7 @@ my.packages <- c(
   'tidyverse','CoordinateCleaner','tidyterra','terra','raster','textclean',
   'countrycode','data.table'
 )
-# install.packages (my.packages) #Turn on to install current versions
+#install.packages (my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
 rm(my.packages)
 
@@ -85,7 +85,7 @@ length(file_dfs) #7
 #   and fills with NA; 'Reduce' iterates through list and merges with previous.
 # this may take a few minutes if you have lots of data
 all_data_raw <- Reduce(bind_rows, file_dfs)
-nrow(all_data_raw) #2557933
+nrow(all_data_raw) #2557129
 names(all_data_raw) #37
 table(all_data_raw$database)
 # BIEN    Ex_situ  FIA     GBIF    iDigBio  IUCN_RedList  NorthAm_herbaria
@@ -106,8 +106,10 @@ rm(all_data_raw)
 ################################################################################
 
 # read in target taxa list
-taxon_list <- read.csv(file.path(main_dir, "target_taxa_with_synonyms.csv"),
-                       header = T, na.strings = c("","NA"),colClasses = "character")
+taxon_list <- read.csv(file.path(main_dir,"taxa_metadata",
+                                 "target_taxa_with_synonyms.csv"),
+                       header = T, na.strings = c("","NA"),
+                       colClasses = "character")
 target_taxa <- unique(taxon_list$taxon_name)
 # if needed, add columns that separate out taxon name
 taxon_list <- taxon_list %>%
@@ -221,7 +223,13 @@ coord_test <- cc_val(all_data, lon = "decimalLongitude",lat = "decimalLatitude",
 all_data$flag <- NA
 all_data[!coord_test,]$flag <- "Coordinates invalid"
 rm(coord_test)
- 
+
+# write file of raw data before selecting only geolocated records;
+#   this will be used for the GapAnalysis package's summary of occurrences
+write.csv(all_data, file.path(main_dir,data,"raw_occurrence_data",
+                             paste0("all_occurrence_data_raw_", 
+                                    Sys.Date(), ".csv")),row.names = F)
+
 ################################################################################
 # Select records that have coordinates and are on land
 ################################################################################
@@ -273,6 +281,8 @@ nrow(geo_pts) #2184049
 table(geo_pts$database)
 # BIEN    Ex_situ   FIA      GBIF     iDigBio   IUCN_RedList  NorthAm_herbaria
 # 808255  1429      917467   344725   38286     22429         51458
+
+rm(all_data,geo_pts_spatial,land_pts,no_geo_pts,on_land,world_buff,land_id)
 
 ################################################################################
 # Standardize country code column for checking against lat-long later
@@ -334,6 +344,18 @@ sort(table(geo_pts$countryCode_standard))
 ##    choose priority datasets to keep points from; this can also help with 
 ##    citations since data from some databases are harder to cite than others.
 
+# first, if you're working at the taxon level, add infrataxon records to their 
+# parent species too
+add_again <- geo_pts %>% filter(grepl("var\\.|subsp\\.", taxon_name_accepted))
+unique(add_again$taxon_name_accepted)
+add_again$taxon_name_accepted <- gsub(" var\\.*\\s.+", "",
+                                      add_again$taxon_name_accepted)
+unique(add_again$taxon_name_accepted)
+geo_pts <- rbind(geo_pts,add_again)
+table(geo_pts$database)
+# BIEN    Ex_situ   FIA      GBIF     iDigBio   IUCN_RedList  NorthAm_herbaria
+# 815391  1530      917467   351671   42525     22893         59884
+
 # create rounded latitude and longitude columns for removing duplicates;
 #   number of digits can be changed based on how dense you want data
 geo_pts$lat_round <- round(geo_pts$decimalLatitude,digits=2)
@@ -371,8 +393,8 @@ geo_pts <- geo_pts %>% arrange(desc(year))
   # sort by source database
 unique(geo_pts$database)
 geo_pts$database <- factor(geo_pts$database,
-  levels = c("GBIF","NorthAm_herbaria","iDigBio",
-             "IUCN_RedList","FIA","BIEN","Ex_situ"))
+  levels = c("GBIF","iDigBio","IUCN_RedList","NorthAm_herbaria",
+             "FIA","BIEN","Ex_situ"))
 geo_pts <- geo_pts %>% arrange(database)
 
 # remove duplicates
@@ -423,7 +445,7 @@ head(as.data.frame(geo_pts2))
 nrow(geo_pts2) #367559
 table(geo_pts2$database)
 # BIEN    Ex_situ   FIA      GBIF     iDigBio   IUCN_RedList  NorthAm_herbaria
-# 11471   1429      160120   173202   2392      4903          14042
+# 12703   1530      160099   176790   10345     3969          8879
 rm(geo_pts)
 
 # write file if you'd like
@@ -453,18 +475,6 @@ write.csv(summary, file.path(main_dir,data,
 ################################################################################
 # Split by species to save
 ################################################################################
-
-# first, if you're working at the taxon level, add infrataxon records to their 
-# parent species too
-add_again <- geo_pts2 %>% filter(grepl("var\\.|subsp\\.", taxon_name_accepted))
-unique(add_again$taxon_name_accepted)
-add_again$taxon_name_accepted <- gsub(" var\\.*\\s.+", "",
-                                      add_again$taxon_name_accepted)
-unique(add_again$taxon_name_accepted)
-geo_pts2 <- rbind(geo_pts2,add_again)
-table(geo_pts2$database)
-# BIEN    Ex_situ   FIA      GBIF     iDigBio   IUCN_RedList  NorthAm_herbaria
-# 12824   1530      160120   177601   2755      4947          17201
 
 # split records to create one CSV for each target taxon
 sp_split <- split(geo_pts2, as.factor(geo_pts2$taxon_name_accepted))

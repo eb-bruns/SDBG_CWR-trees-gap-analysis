@@ -86,8 +86,7 @@ occurrenceData <- occ_raw %>%
     .inst = as.logical(.inst),
     #.con = as.logical(.con),
     .outl = as.logical(.outl),
-    #.gtsnative = as.logical(.gtsnative),
-    #.rlnative = as.logical(.rlnative),
+    .nativectry = as.logical(.nativectry),
     .yr1950 = as.logical(.yr1950),
     .yr1980 = as.logical(.yr1980),
     .yrna = as.logical(.yrna)
@@ -98,8 +97,7 @@ occurrenceData <- occ_raw %>%
     (.cen & .inst &  .outl &
       #.con &
       #.urb & .yr1950 & .yr1980 & .yrna &
-      #(.gtsnative | is.na(.gtsnative)) &
-      #(.rlnative  | is.na(.rlnative)) &
+      (.nativectry | is.na(.nativectry)) &
       #(.rlintroduced | is.na(.rlintroduced)) &
       basisOfRecord != "FOSSIL_SPECIMEN" & 
         basisOfRecord != "LIVING_SPECIMEN" &
@@ -166,6 +164,7 @@ Occurrence_data <- occurrenceData
 Raster_list <- rasterList
 Buffer_distance <- 50000
 Ecoregions_shp <- ecoregions
+Gap_Map <- TRUE
 
 ## Running all three ex situ gap analysis steps using FCSex function
 FCSex_df <- FCSex(Species_list=testTaxonList[3],

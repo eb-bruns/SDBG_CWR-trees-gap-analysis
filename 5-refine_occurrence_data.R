@@ -40,7 +40,7 @@ my.packages <- c(
   "tidyverse","rnaturalearth","sp","tools","terra","textclean",
   "CoordinateCleaner"
 )
-#install.packages(my.packages) #Turn on to install current versions
+install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
   rm(my.packages)
 

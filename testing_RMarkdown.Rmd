@@ -1,16 +1,11 @@
 ---
 title: "Summary of conservation gap analysis"
-author: "Emily Beckman Bruns"
-date: "22/Dec/2022"
+author: "North American Fruit and Nut Tree Crop Wild Relatives Working Group"
+date: "January 2023"
 output:
   html_document:
-highlight: tango
-theme: yeti
-toc: no
-toc_depth: 4
-toc_float:
-  collapsed: yes
-smooth_scroll: no
+    df_print: paged
+  html_notebook: default
 ---
 
 <style type="text/css">
@@ -21,50 +16,34 @@ smooth_scroll: no
 }
 </style>
 
-*Italic*
+**Emily Beckman Bruns, Colin Khoury, Ray Mims, Abby Meyer, Emily Warschefsky**
 
-**Bold**
-
-# Header 1
-
-## Header 2
-
-* Unordered list item
-
-1. Ordered list item
-
-[Link](https://www.google.com)
-
+```{r echo=FALSE, fig.height = 0.5, fig.align = "left"}
+## add partner logos
+# United States Botanic Garden
+knitr::include_graphics("/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap-Analysis-Mapping/parnter_logos/USBG_LOGOS_MEDIUM-GREEN-08.png")
+# San Diego Botanic Garden
+knitr::include_graphics("/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap-Analysis-Mapping/parnter_logos/SanDiegoBotanicGarden-logo.png")
+# The Morton Arboretum
+knitr::include_graphics("/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap-Analysis-Mapping/parnter_logos/21MRK_TheMortonArboretum_TCOTLogo_Black_Black.png")
+# Botanic Gardens Conservation International
+knitr::include_graphics("/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap-Analysis-Mapping/parnter_logos/BGCI_Logo_2.png")
+# Missouri Botanical Garden
+knitr::include_graphics("/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap-Analysis-Mapping/parnter_logos/MOBOT-logo-1.png")
+# National Science Foundation
+knitr::include_graphics("/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap-Analysis-Mapping/parnter_logos/NSF_Official_logo_High_Res_1200ppi.png")
+```
 
 ```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
-# note that "echo=FALSE" means the code will not show up in the HTML output
-#   "include=FALSE" means the output object is not in the HTLM
+## note that "echo=FALSE" means the code will not
+sssshow up in the HTML output; "include=FALSE" means the output object is not in the HTLM
 
-# load packages
-my.packages <- c("leaflet","RColorBrewer","dplyr","raster","terra")
-  #"rnaturalearth","rnaturalearthhires","Polychrome") #"ggplot2","maps",
-lapply(my.packages, require, character.only=TRUE)
-#  rm(my.packages)
-
-###############################################################################
-# Set working directory
-###############################################################################
-
-# either set manually:
-#main_dir <- "/Volumes/GoogleDrive-103729429307302508433/My Drive/CWR North America Gap Analysis/Gap-Analysis-Mapping"
-
-# or use 0-set_working-directory.R script:
-source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/0-set_working_directory.R")
+## source the script with leaflet mapping functions
 source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/mapping_functions.R")
+```
 
-# set up file paths
-path.pts <- file.path(main_dir,occ_dir,"standardized_occurrence_data","taxon_edited_points")
-path.sdm <- file.path(main_dir,gis_dir,"PNAS_2020_SDMs")
-path.out.figs <- file.path(main_dir,"interactive_maps")
-
-###############################################################################
-# Use leaflet package to create interactive maps to explore (html)
-###############################################################################
+```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
+## use leaflet package to create interactive maps to explore (html)
 
 # define projections we'll use throughout
 #		points will be WGS84
@@ -76,7 +55,7 @@ calc.proj <- "+proj=aea + lat_1=29.5 + lat_2=45.5 + lat_0=37.5 + lon_0=-96 +x_0=
 
 # read in / load polygon data
   # ecoregions
-ecoregions <- vect(file.path(main_dir,gis_dir,"terr-ecoregions-TNC", "tnc_terr_ecoregions.shp"))
+#ecoregions <- vect(file.path(main_dir,gis_dir,"terr-ecoregions-TNC", "tnc_terr_ecoregions.shp"))
   # country boundaries
 world_countries <- vect(file.path(main_dir,gis_dir, "UIA_World_Countries_Boundaries/World_Countries__Generalized_.shp"))
   # create subset with only target countries
@@ -95,27 +74,27 @@ eco_clip <- crop(ecoregions_proj,target_countries_shp)
 eco_clip_sf <- sf::st_as_sf(eco_clip)
 
 # select target taxa
-taxon_list <- read.csv(file.path(main_dir,taxa_dir,"target_taxa_with_synonyms.csv"), header = T, na.strings=c("","NA"), colClasses="character")
+#taxon_list <- read.csv(file.path(main_dir,taxa_dir,"target_taxa_with_synonyms.csv"), header = T, na.strings=c("","NA"), colClasses="character")
   # add country distribution data
-taxon_dist <- read.csv(file.path(main_dir,taxa_dir, "target_taxa_with_native_dist.csv"), header = T, na.strings=c("","NA"), colClasses="character")
-taxon_list <- left_join(taxon_list,taxon_dist)
-target_taxa <- taxon_list %>% dplyr::filter(taxon_name_status == "Accepted")
+#taxon_dist <- read.csv(file.path(main_dir,taxa_dir, "target_taxa_with_native_dist.csv"), header = T, na.strings=c("","NA"), colClasses="character")
+#taxon_list <- left_join(taxon_list,taxon_dist)
+#target_taxa <- taxon_list %>% dplyr::filter(taxon_name_status == "Accepted")
   # list of native countries for each target species
-countries <- target_taxa$all_native_dist_iso2
+#countries <- target_taxa$all_native_dist_iso2
 
   # create subsets of taxa that have data
-spp.all <- list.files(path = path.pts, pattern = ".csv", full.names = F)
-  spp.all <- unique(gsub(".csv","",spp.all))
-yes_sdm <- list.files(path = path.sdm, pattern = ".tif", full.names = F)
-  yes_sdm <- unique(gsub("_PNAS_2020_SDM.tif","",yes_sdm))
+#spp.all <- list.files(path = path.pts, pattern = ".csv", full.names = F)
+#  spp.all <- unique(gsub(".csv","",spp.all))
+#yes_sdm <- list.files(path = path.sdm, pattern = ".tif", full.names = F)
+#  yes_sdm <- unique(gsub("_PNAS_2020_SDM.tif","",yes_sdm))
 
 ##
 ### cycle through each species file and create map
 ##
 #for(i in 1:length(spp.all)){
-i <- 15
+#i <- 1
 
-  cat("starting ",spp.all[i],", ",i," of ",length(spp.all),".\n", sep="")
+#  cat("starting ",spp.all[i],", ",i," of ",length(spp.all),".\n", sep="")
   
   ## read in occurrence records (includes ex situ)
   spp.pts <- read.csv(file.path(path.pts, paste0(spp.all[i], ".csv")))
@@ -215,8 +194,8 @@ i <- 15
 ### Test Map
 
 
-```{r  echo=FALSE, message=FALSE, warning=FALSE, fig.cap="A nice image.", fig.width=7}
-  #out.width="80%", fig.height=3
+```{r  echo=FALSE, message=FALSE, warning=FALSE, fig.cap="A nice image.", fig.height=7}
+  #out.width="80%"
 map
 ```
 
@@ -255,6 +234,20 @@ t1 <- knitr::kable(x = t)
 kableExtra::kable_styling(kable_input = t1, bootstrap_options = "striped", full_width = F)
 ```
 
+
+**Bold**
+
+*Italic*
+
+# Header 1
+
+## Header 2
+
+* Unordered list item
+
+1. Ordered list item
+
+[Link](https://www.google.com)
 
 <br>
 <br>
