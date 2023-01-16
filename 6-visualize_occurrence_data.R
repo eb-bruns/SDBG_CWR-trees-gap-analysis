@@ -68,17 +68,18 @@ taxon_dist <- read.csv(file.path(main_dir,taxa_dir,
   "target_taxa_with_native_dist.csv"), header = T, na.strings=c("","NA"),
   colClasses="character")
 taxon_list <- left_join(taxon_list,taxon_dist)
-  ### UPDATE THIS:
-no_sdm <- c("Carya x ludoviciana","Prunus x orthosepala","Carya x lecontei",
-            "Asimina x nashii","Juglans microcarpa var. stewartii",
-            "Prunus serotina var. eximia","Asimina tetramera",
-            "Castanea x neglecta","Prunus eremophila")
+  ### UPDATE THIS AS NEEDED:
+#no_sdm <- c("Asimina tetramera","Asimina x nashii","Carya x lecontei",
+#            "Carya x ludoviciana","Castanea x neglecta",
+#            "Juglans microcarpa var. stewartii","Prunus eremophila",
+#            "Prunus serotina var. eximia","Prunus x orthosepala")
   # select accepted taxa and remove one that has no occurrence points
 target_taxa <- taxon_list %>%
-  dplyr::filter(taxon_name_status == "Accepted" &
+  dplyr::filter(taxon_name_status == "Accepted"
       # optionally, remove species with no SDM (list created manually above)
-                !(taxon_name_accepted %in% no_sdm))
-  nrow(target_taxa) #87
+#        & !(taxon_name_accepted %in% no_sdm)
+        )
+  nrow(target_taxa) #87 // 96
 spp.all <- unique(gsub(" ","_",target_taxa$taxon_name_accepted))
 spp.all
   # list of native countries for each target species
@@ -91,7 +92,7 @@ world_polygons <- vect(file.path(path.gis,
 if(!dir.exists(output.maps)) dir.create(output.maps, recursive=T)
 
 ### cycle through each species file and create map
-for(i in 32:length(spp.all)){
+for(i in 1:length(spp.all)){
 
   # read in records
   spp.now <- read.csv(file.path(path.pts, paste0(gsub("\\.","",spp.all[i]), 
@@ -122,16 +123,16 @@ for(i in 32:length(spp.all)){
     #  genus,"/",taxon,"/",taxon,"__thrsld_median.tif")
     #download.file(raster_path,
     #  destfile=file.path(path.rasters,paste0(spp.all[i], "_PNAS_2020_SDM.tif")))
-  spp.raster <- raster(file.path(
-    path.rasters,paste0(spp.all[i],"-spdist_thrsld_median.tif")))
+#  spp.raster <- raster(file.path(
+#    path.rasters,paste0(spp.all[i],"-spdist_thrsld_median.tif")))
   # reclassification of 0 to NA, so we don't view the ecoregions layer
   # this was not needed for the 2020 PNAS SDMs
-  spp.raster[spp.raster==0] <- NA
+#  spp.raster[spp.raster==0] <- NA
   # set color palette
-  raster.pal <- colorNumeric("#e0aee6",values(spp.raster),na.color = "transparent")
+#  raster.pal <- colorNumeric("#e0aee6",values(spp.raster),na.color = "transparent")
   
   # create map
-  final_map <- leaflet() %>%
+  try(final_map <- leaflet() %>%
     # Base layer groups
     #addProviderTiles(providers$CartoDB.PositronNoLabels,
     #  group = "CartoDB.PositronNoLabels") %>%
@@ -144,7 +145,7 @@ for(i in 32:length(spp.all)){
       Click each point for more information about the record.",
       position = "topright") %>%
     # SDM
-    addRasterImage(spp.raster,colors=raster.pal,opacity = 0.8) %>%
+#    addRasterImage(spp.raster,colors=raster.pal,opacity = 0.8) %>%
 	  # Native country outlines
 	  #addPolygons(data = target_countries, fillColor = "transparent",
 		#  weight = 2, opacity = 0.8, color = "#7a7a7a") %>%
@@ -348,7 +349,7 @@ for(i in 32:length(spp.all)){
                         "Geographic outlier (.outl)",
                         "Outside native country (.nativectry)",
                         "FOSSIL_SPECIMEN or LIVING_SPECIMEN (basisOfRecord)",
-                        "INTRODUCED, MANAGED, or INVASIVE (establishmentMeans)",
+                        "INTRODUCED, MANAGED, CULTIVATED, or INVASIVE (establishmentMeans)",
                         "Recorded prior to 1950 (.yr1950)",
                         "Recorded prior to 1980 (.yr1980)",
                         "Year unknown (.yrna)"),
@@ -361,24 +362,24 @@ for(i in 32:length(spp.all)){
     #hideGroup("Geographic outlier (.outl)") %>%
     #hideGroup("Outside native country (.nativectry)") %>%
     #hideGroup("FOSSIL_SPECIMEN or LIVING_SPECIMEN (basisOfRecord)") %>%
-    #hideGroup("INTRODUCED, MANAGED, or INVASIVE (establishmentMeans)") %>%
+    #hideGroup("INTRODUCED, MANAGED, CULTIVATED, or INVASIVE (establishmentMeans)") %>%
     hideGroup("Recorded prior to 1950 (.yr1950)") %>%
     hideGroup("Recorded prior to 1980 (.yr1980)") %>%
     hideGroup("Year unknown (.yrna)") %>%
-    addLegend(labels = c("Present","Absent"),colors = c("#e0aee6","white"),
-      title = "Species Distribution Model", position = "bottomright",
-      opacity = 0.8) %>%
+#    addLegend(labels = c("Present","Absent"),colors = c("#e0aee6","white"),
+#      title = "Species Distribution Model", position = "bottomright",
+#      opacity = 0.8) %>%
     addLegend(pal = database.pal, values = unique(spp.now$database),
       title = "Occurrence point</br>source database", position = "bottomright", opacity = 0.8) %>%
     addControl(
       "See https://github.com/eb-bruns/SDBG_CWR-trees-gap-analysis
       for information about data sources and flagging methodology.",
-      position = "bottomleft")
+      position = "bottomleft"))
   final_map
 
   # save map
-  htmlwidgets::saveWidget(final_map, file.path(output.maps,
-    paste0(spp.all[i], "_occurrence_map.html")))
+  try(htmlwidgets::saveWidget(final_map, file.path(output.maps,
+    paste0(spp.all[i], "_occurrence_map.html"))))
 
   cat("\tEnding ", spp.all[i], ", ", i, " of ", length(spp.all), ".\n\n", sep="")
 }
