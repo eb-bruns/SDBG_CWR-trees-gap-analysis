@@ -38,9 +38,9 @@
 
 my.packages <- c(
   "tidyverse","rnaturalearth","sp","tools","terra","textclean",
-  "CoordinateCleaner"
-)
-install.packages(my.packages) #Turn on to install current versions
+  "CoordinateCleaner","sf"
+  )
+#install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
   rm(my.packages)
 
@@ -66,8 +66,12 @@ polygons <- "gis_layers"
 # define projection
 wgs_proj <- sp::CRS(SRS_string="EPSG:4326")
 # get urban areas layer and transform projection to WGS84
-urban.poly <- rnaturalearth::ne_download(scale = "large", type = "urban_areas")
-urban.poly <- spTransform(urban.poly,wgs_proj)
+  # the ne_download function isn't working now... doing manually 9 Jan 2023
+  #urban.poly <- rnaturalearth::ne_download(scale = "large", type = "urban_areas")
+### !! THIS NEEDS TO BE TESTED STILL !!!
+urban.poly <- sf::read_sf(
+  file.path(main_dir,gis_dir,"ne_10m_urban_areas/ne_10m_urban_areas.shp"))
+urban.poly <- st_transform(urban.poly,wgs_proj)
 
 # read in country-level native distribution data
 native_dist <- read.csv(file.path(main_dir,"taxa_metadata",
@@ -213,7 +217,8 @@ for (i in 1:length(taxon_list)){
     inst_rad = 100, # radius around biodiversity institutions coords (meters)
     tests = c("centroids","institutions")
   )
-  ## adding urban area test separately because won't work when only 1 point
+  ## adding urban area test separately because won't work when only 1 point;
+  # this is really slow when not using rnaturalearth version..
   if(nrow(taxon_df)<2){
     taxon_now$.urb <- NA
     print("Taxa with fewer than 2 records will not be tested.")
