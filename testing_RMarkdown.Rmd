@@ -35,12 +35,14 @@ knitr::include_graphics("/Volumes/GoogleDrive-103729429307302508433/Shared drive
 ```
 
 ```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
-## note that "echo=FALSE" means the code will not
-sssshow up in the HTML output; "include=FALSE" means the output object is not in the HTLM
+## note that "echo=FALSE" means the code will not show up in the HTML output; 
+## "include=FALSE" means the output object is not in the HTLM
 
 ## source the script with leaflet mapping functions
 source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/mapping_functions.R")
 ```
+
+## Species-level results
 
 ```{r echo=FALSE, include=FALSE, message=FALSE, warning=FALSE}
 ## use leaflet package to create interactive maps to explore (html)
@@ -48,7 +50,7 @@ source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/mapping_functi
 # define projections we'll use throughout
 #		points will be WGS84
 #pt.proj <- "+proj=longlat +datum=WGS84"
-pt.proj <- "EPSG:4326"
+#pt.proj <- "EPSG:4326"
 #   for calculations we need something in meters, like Equal Earth Projection
 # calc.proj <- "+proj=eqearth +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
 calc.proj <- "+proj=aea + lat_1=29.5 + lat_2=45.5 + lat_0=37.5 + lon_0=-96 +x_0=0 +y_0=0 + ellps =GRS80 +datum=NAD83 + units=m +no_defs"
@@ -57,7 +59,7 @@ calc.proj <- "+proj=aea + lat_1=29.5 + lat_2=45.5 + lat_0=37.5 + lon_0=-96 +x_0=
   # ecoregions
 #ecoregions <- vect(file.path(main_dir,gis_dir,"terr-ecoregions-TNC", "tnc_terr_ecoregions.shp"))
   # country boundaries
-world_countries <- vect(file.path(main_dir,gis_dir, "UIA_World_Countries_Boundaries/World_Countries__Generalized_.shp"))
+world_countries <- raster::shapefile(file.path(main_dir,gis_dir, "UIA_World_Countries_Boundaries/World_Countries__Generalized_.shp"))
   # create subset with only target countries
 #target_iso <- c("US","MX","CA")
 #target_countries_shp <- subset(world_countries,
@@ -67,10 +69,11 @@ target_countries_shp <- world_countries
 #target_countries.pt <- project(target_countries_shp,pt.proj)
 #boundary.pt <- aggregate(target_countries.pt,dissolve = TRUE)
   # create polygon for clipping buffers later
-ecoregions_proj <- project(ecoregions,pt.proj)
-boundary.poly <- aggregate(ecoregions_proj,dissolve = TRUE)
+#ecoregions_proj <- project(ecoregions,pt.proj)
+raster::crs(ecoregions) <- "EPSG:4326"
+boundary.poly <- aggregate(ecoregions,dissolve = TRUE)
   # create clipped version of ecoregions
-eco_clip <- crop(ecoregions_proj,target_countries_shp)
+eco_clip <- crop(ecoregions,target_countries_shp)
 eco_clip_sf <- sf::st_as_sf(eco_clip)
 
 # select target taxa
@@ -94,44 +97,45 @@ eco_clip_sf <- sf::st_as_sf(eco_clip)
 #for(i in 1:length(spp.all)){
 #i <- 1
 
-#  cat("starting ",spp.all[i],", ",i," of ",length(spp.all),".\n", sep="")
+#  cat("starting ",Sl,", ",i," of ",length(spp.all),".\n", sep="")
   
   ## read in occurrence records (includes ex situ)
-  spp.pts <- read.csv(file.path(path.pts, paste0(spp.all[i], ".csv")))
+  #spp.pts <- read.csv(file.path(path.pts, paste0(Sl, ".csv")))
+  spp.pts <- Od
 
   ## filter records based on flagging columns from 5-refine_occurrence_data.R
-  spp.pts <- spp.pts %>%
-    mutate(
-      .cen = as.logical(.cen),
-      #.urb = as.logical(.urb),
-      .inst = as.logical(.inst),
-      #.con = as.logical(.con),
-      .outl = as.logical(.outl),
-      #.gtsnative = as.logical(.gtsnative),
-      #.rlnative = as.logical(.rlnative),
-      .yr1950 = as.logical(.yr1950),
-      .yr1980 = as.logical(.yr1980),
-      .yrna = as.logical(.yrna)
-    ) %>%
-    # select or deselect these filters as desired:
-    dplyr::filter(
-      database == "Ex_situ" |
-      (.cen & .inst & .outl &
-         #.con & 
-         #.urb & .yr1950 & .yr1980 & .yrna &
-         #(.gtsnative | is.na(.gtsnative)) &
-         #(.rlnative  | is.na(.rlnative)) &
-         #(.rlintroduced | is.na(.rlintroduced)) &
-         basisOfRecord != "FOSSIL_SPECIMEN" & 
-         basisOfRecord != "LIVING_SPECIMEN" &
-         establishmentMeans != "INTRODUCED" & 
-         establishmentMeans != "MANAGED" &
-         establishmentMeans != "CULTIVATED" #&
-         #latlong_countryCode %in% c("US","CA","MX")
-       ))
+  #spp.pts <- spp.pts %>%
+  #  mutate(
+  #    .cen = as.logical(.cen),
+  #    #.urb = as.logical(.urb),
+  #    .inst = as.logical(.inst),
+  #    #.con = as.logical(.con),
+  #    .outl = as.logical(.outl),
+  #    #.gtsnative = as.logical(.gtsnative),
+  #    #.rlnative = as.logical(.rlnative),
+  #    .yr1950 = as.logical(.yr1950),
+  #    .yr1980 = as.logical(.yr1980),
+  #    .yrna = as.logical(.yrna)
+  #  ) %>%
+  #  # select or deselect these filters as desired:
+  #  dplyr::filter(
+  #    database == "Ex_situ" |
+  #    (.cen & .inst & .outl &
+  #       #.con & 
+  #       #.urb & .yr1950 & .yr1980 & .yrna &
+  #       #(.gtsnative | is.na(.gtsnative)) &
+  #       #(.rlnative  | is.na(.rlnative)) &
+  #       #(.rlintroduced | is.na(.rlintroduced)) &
+  #       basisOfRecord != "FOSSIL_SPECIMEN" & 
+  #       basisOfRecord != "LIVING_SPECIMEN" &
+   #      establishmentMeans != "INTRODUCED" & 
+    #     establishmentMeans != "MANAGED" &
+    #     establishmentMeans != "CULTIVATED" #&
+    ##     #latlong_countryCode %in% c("US","CA","MX")
+    #   ))
 
   ## create layer of buffers around points
-  spp.pts.buffer <- create.buffers(spp.pts,50000,pt.proj,pt.proj,boundary.poly)
+  spp.pts.buffer <- create.buffers(spp.pts,50000,"EPSG:4326","EPSG:4326",boundary.poly)
 
   ## create subset of ecoregions within buffers (takes too long)
   #eco.sel <- intersect(spp.pts.buffer,eco_clip_sf)
@@ -153,9 +157,10 @@ eco_clip_sf <- sf::st_as_sf(eco_clip)
         #exsitu3 <- exsitu %>% arrange(establishmentMeans) %>%
         #  filter(establishmentMeans >= few_indiv)
     # if there is a 2020 SDM
-    if(spp.all[i] %in% yes_sdm){
+    if(Sl %in% yes_sdm){
       ## read in raster from Khoury et al 2020 (PNAS)
-      spp.raster <- raster(file.path(path.sdm,paste0(spp.all[i],"_PNAS_2020_SDM.tif")))
+      #spp.raster <- raster(file.path(path.sdm,paste0(Sl,"_PNAS_2020_SDM.tif")))
+      spp.raster <- Rl
       # select color for raster when mapped
       raster.pal <- colorNumeric("#0e6187",values(spp.raster),na.color = "transparent")
       ## map everything
@@ -167,9 +172,9 @@ eco_clip_sf <- sf::st_as_sf(eco_clip)
       map <- create.nosdm.map(eco_clip_sf,spp.pts.buffer,spp.pts,ex.pts.buffer,ex.pts)
     }
   } else { # no ex situ
-    if(spp.all[i] %in% yes_sdm){
+    if(Sl %in% yes_sdm){
       ## read in raster from Khoury et al 2020 (PNAS)
-      spp.raster <- raster(file.path(path.sdm,paste0(spp.all[i],"_PNAS_2020_SDM.tif")))
+      spp.raster <- raster(file.path(path.sdm,paste0(Sl,"_PNAS_2020_SDM.tif")))
       # select color for raster when mapped
       raster.pal <- colorNumeric("#0e6187",values(spp.raster),na.color = "transparent")
       ## map without ex situ
@@ -184,7 +189,7 @@ eco_clip_sf <- sf::st_as_sf(eco_clip)
 
   # save map
   #htmlwidgets::saveWidget(map, file.path(path.out.figs,
-  #  paste0(spp.all[i], "__prelim_map_v2.html")))
+  #  paste0(Sl, "__prelim_map_v2.html")))
 
 #}
 ```
