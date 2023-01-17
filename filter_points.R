@@ -80,4 +80,5 @@ filter.points <- function(occ_data, manual_edits=NULL){
   occ_fltr <- occ_fltr %>% 
     dplyr::filter(taxon_name != "Prunus glandulosa")
 
+  return(occ_fltr)
 }
