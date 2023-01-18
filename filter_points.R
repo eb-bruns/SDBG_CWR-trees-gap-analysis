@@ -2,6 +2,18 @@
 
 filter.points <- function(occ_data, manual_edits=NULL){
   
+  ## first make sure all the T/F columns are logical type
+  occ_data <- occ_data %>%
+    dplyr::mutate(.cen = as.logical(.cen),
+                  .inst = as.logical(.inst),
+                  .outl = as.logical(.outl),
+                  .con = as.logical(.con),
+                  .urb = as.logical(.urb),
+                  .yr1950 = as.logical(.yr1950),
+                  .yr1980 = as.logical(.yr1980),
+                  .yrna = as.logical(.yrna),
+                  .nativectry = as.logical(.nativectry))
+    
   ## filter occurrence data based on filter columns created in 
   ##  5-refine-occurrence-data.R
   occ_fltr <- occ_data %>%
@@ -21,7 +33,7 @@ filter.points <- function(occ_data, manual_edits=NULL){
        establishmentMeans != "INVASIVE" &
        establishmentMeans != "CULTIVATED"
      ))
-  print(paste0("Removed ", nrow(occ_data)-nrow(occ_fltr),
+  print(paste0("Removed ", nrow(occ_data)-nrow(occ_fltr)," of ", nrow(occ_data),
                " points based on flagging colums"))
   
   ## (optinally) check document with manual point edits to see if anything needs 
@@ -81,4 +93,5 @@ filter.points <- function(occ_data, manual_edits=NULL){
     dplyr::filter(taxon_name != "Prunus glandulosa")
 
   return(occ_fltr)
+  
 }
