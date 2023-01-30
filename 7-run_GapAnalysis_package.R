@@ -469,7 +469,7 @@ grs <- all_results_yesSDM %>%
   facet_grid(cols = vars(CalcType)) +
   labs(title = "Geographical Representativeness Score (GRS)",
        colour = "Distribution type")
-ggsave(file.path(main_dir,"summary_charts/SRS_BufferVersusSDM.png"),
+ggsave(file.path(main_dir,"summary_charts/GRS_BufferVersusSDM.png"),
        plot = grs, device = "png", units = "in", width = 15, 
        height = 12, dpi = 300)
 # all ERS results
@@ -484,7 +484,7 @@ ers <- all_results_yesSDM %>%
   facet_grid(cols = vars(CalcType)) +
   labs(title = "Ecological Representativeness Score (ERS)",
        colour = "Distribution type")
-ggsave(file.path(main_dir,"summary_charts/SRS_BufferVersusSDM.png"),
+ggsave(file.path(main_dir,"summary_charts/ERS_BufferVersusSDM.png"),
        plot = ers, device = "png", units = "in", width = 15, 
        height = 12, dpi = 300)
 
@@ -500,6 +500,6 @@ fcs <- all_results_yesSDM %>%
     facet_grid(cols = vars(CalcType)) +
     labs(title = "Final Conservation Score (FCS; average of SRS, GRS, and ERS)",
          colour = "Distribution type")
-ggsave(file.path(main_dir,"summary_charts/SRS_BufferVersusSDM.png"),
+ggsave(file.path(main_dir,"summary_charts/FCS_BufferVersusSDM.png"),
        plot = fcs, device = "png", units = "in", width = 15, 
        height = 12, dpi = 300)
