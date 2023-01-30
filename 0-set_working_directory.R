@@ -28,12 +28,14 @@ if (Sys.info()[4] == "Africa.local") {
     # for IMLS Collections Value project
   #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/IMLS MFA/occurrence_points"
     # for North American fruit and nut tree CWR project
-  main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap-Analysis-Mapping"
+  main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap_Analysis"
   # set folder structure within main working directory
   gis_dir <- "gis_layers"
-  taxa_dir <- "taxa_metadata"
+  taxa_dir <- "target_taxa"
   exsitu_dir <- "exsitu_data"
   occ_dir <- "occurrence_data"
+  # cloned gap analysis repository
+  gap_dir <- "/Users/emily/Documents/GitHub/GapAnalysis/R"
   # OPTIONAL: set local working directory, for trialing locally before saving
   #   to main working directory
   local_dir <- "./Desktop/*work/NorthAm-CWR"
@@ -42,32 +44,13 @@ if (Sys.info()[4] == "Africa.local") {
   # prints computer name, to let you know you're in the right spot
   print(paste("Working from the lovely", Sys.info()[4]))
 
-## Secondary one for Emily Beckman Bruns:
-} else if (Sys.info()[4] == "Africa.hsd1.il.comcast.net") {
-  # set main working directory
-  # for IMLS Collections Value project
-  # for North American fruit and nut tree CWR project
-  main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap-Analysis-Mapping"
-  # set folder structure within main working directory
-  gis_dir <- "gis_layers"
-  taxa_dir <- "taxa_metadata"
-  exsitu_dir <- "exsitu_data"
-  occ_dir <- "occurrence_data"
-  # OPTIONAL: set local working directory, for trialing locally before saving
-  #   to main working directory
-  local_dir <- "./Desktop/*work/NorthAm-CWR"
-  # set location for login information (e.g., for GBIF)
-  log_loc <- file.path(local_dir, "IMLS_passwords.txt")
-  # prints computer name, to let you know you're in the right spot
-  print(paste("Working from the lovely", Sys.info()[4]))
-   
 ## For additional user or workstation (fill in ________ with your info):
 } else if (Sys.info()[4] == "________") {
   # set main working directory
   main_dir <- "________"
   # set folder structure within main working directory
   gis_dir <- "gis_layers"
-  taxa_dir <- "taxa_metadata"
+  taxa_dir <- "target_taxa"
   exsitu_dir <- "exsitu_data"
   occ_dir <- "occurrence_data"
   # OPTIONAL: set local working directory, for trialing locally before saving

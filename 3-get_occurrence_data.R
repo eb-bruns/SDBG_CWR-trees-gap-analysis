@@ -225,7 +225,7 @@ length(file_list) #1
 # get path(s) to raw data; we will then loop through each file to standardize it
 file_list <- list.files(path = file.path(main_dir,data,raw,"GBIF"),
   pattern = "occurrence", full.names = T)
-length(file_list) #3
+length(file_list)
 
 ###
 ### STANDARDIZE THE DATA
