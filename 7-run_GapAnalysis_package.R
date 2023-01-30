@@ -32,30 +32,10 @@ my.packages <- c(# additional packages for mapping and other visualizations
                  'geosphere', 'fasterize', 'rmarkdown', 'knitr', 
                  'kableExtra', 'DT',#'rgdal', 'rgeos', 
                  # additional packages for mapping and other visualizations
-                  'terra','raster'
+                  'terra','raster','dismo'
                  )
 #install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
-
-# source my updated versions of GapAnalysis functions
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/SRSin.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/GRSin.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/ERSin.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/SRSex.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/GRSex.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/ERSex.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/FCSex.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/FCSin.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/FCSc_mean.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/SummaryHTML.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/OccurrenceCounts.R")
-
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/LeafletMapGRSex.R")
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/SummaryScoresChart.R")
-
-# source function for filtering occurrence points based on specific flags
-source("/Users/emily/Documents/GitHub/SDBG_CWR-trees-gap-analysis/filter_points.R")
-
 
 ################################################################################
 # Set working directory
@@ -70,6 +50,13 @@ path.pts <- file.path(main_dir,occ_dir,"standardized_occurrence_data",
                       "taxon_edited_points")
 path.sdm <- file.path(main_dir,"sdm_rasters")
 path.rastbuff <- file.path(main_dir,"rasterized_buffers")
+
+# source my updated/new versions of GapAnalysis functions
+source_these <- c("ERSex.R","ERSin.R","FCSc_mean.R","FCSex.R","FCSin.R",
+                  "filter_points.R","GRSex.R","GRSin.R","LeafletMapGRSex.R",
+                  "OccurrenceCounts.R","SRSex.R","SRSin.R","SummaryHTML.R",
+                  "SummaryScoresChart.R")
+lapply(lapply(source_these, function(x) file.path(gap_dir,x)), source)
 
 ################################################################################
 # Read in data for all target taxa
@@ -120,7 +107,7 @@ res(ProtectedAreas) # resolution = 0.04166667 0.04166667
 ecoregions_sf <- sf::read_sf(file.path(
   main_dir,gis_dir,"terr-ecoregions-TNC/tnc_terr_ecoregions.shp"))
 # convert to SpatialPolygonsDataFrame
-ecoregions <- as_Spatial(ecoregions_sf)
+ecoregions <- as_Spatial(ecoregions_sf); rm(ecoregions_sf)
 # crop to target regions, to make a little smaller
 unique(ecoregions$WWF_REALM2)
 ecoregions <- ecoregions[ecoregions$WWF_REALM2 == "Nearctic" | 
@@ -180,6 +167,7 @@ manual_pt_edits <- read.csv(file.path(main_dir,occ_dir,
                             colClasses = "character")
 # filter points based on flagging columns and manual edits
 all_occ <- filter.points(all_occ,manual_pt_edits)
+  rm(filter.points)
   ## save version of filtered points for our records
   #write.csv(all_occ, file.path(
   #  main_dir,occ_dir,"standardized_occurrence_data",
@@ -216,7 +204,17 @@ per_sp <- all_occ %>% count(species); per_sp
 # read in own SDM rasters (created from forked CWR-of-the-USA-Gap-Analysis repo)
 sdm_files <- list.files(path.sdm, pattern = ".tif", full.names = T)
 sdm_list <- lapply(sdm_files, raster)
-
+  ### this should be moved to the SDM workflow, but I didn't notice until now.
+  ## clip SDM rasters to remove the great lakes
+  # read in boundary minus great lakes (created in create_distribution_rasters.R)
+  na_bound <- st_read(file.path(main_dir,gis_dir,"NorthAm_land_boundary",
+                                "NorthAm_land_boundary.shp"))
+  # rasterize the boundary
+  na_rast <- fasterize::fasterize(na_bound, ProtectedAreas)
+  # clip each SDM raster to the boundary
+  sdm_list <- lapply(sdm_list, function(x) x*na_rast)
+  rm(na_bound,na_rast)
+  
 ### Create species list
 # from package example: speciesList <- unique(CucurbitaData$species)
 # from own data
@@ -278,14 +276,13 @@ SummaryHTML(
 #Output_Folder <- file.path(main_dir,"html_outputs")
 #writeRasters <- T
 #Raster_type <- rasterType
-
 #Ecoregions_shp <- ecoregions
 #Pro_areas <- ProtectedAreas
 #pt.proj <<- "EPSG:4326"
 #boundary <- boundary.poly
 #Gap_Map <- T
 #Buffer_distance <- 50000
-#i <- 5
+#i <- 18
 #Sl <- speciesList[i]
 #Od <- all_occ[all_occ$species == speciesList[i], ]
 #OdR <- all_occ_raw[all_occ_raw$species == speciesList[i], ]
@@ -317,33 +314,21 @@ FCSin_all <- FCSin(Species_list=speciesList,
 #  FCSin_sdm$SpeciesDist <- "SDM"
 #  FCSin_sdm$ExsituBuffer <- "N/A"
   ## Calculate means then join everything together for summary figure
-FCSc_mean <- FCSc_mean(FCSex_all, FCSin_all)  
-FCSc_all <- Reduce(full_join,list(FCSc_mean_sdm,FCSex_sdm[,1:4],FCSin_sdm[,1:4]))
+FCSc_mean_now <- FCSc_mean(FCSex_all, FCSin_all)  
+FCSc_all <- Reduce(full_join,list(FCSc_mean_now,FCSex_all[,1:4],FCSin_all[,1:4]))
   # add star to those where buffer was used instead of SDM
   FCSc_all[which(FCSc_all$Taxon %in% speciesList_buff),"Taxon"] <- 
     paste0(FCSc_all[which(FCSc_all$Taxon %in% speciesList_buff),"Taxon"]," ★")
 ## Create summary figure
 final_chart <- SummaryScoresChart(FCSc_all)
-ggsave(file.path(main_dir,"All-GapAnalysis-Scores-Chart.png"),
-       plot = final_chart, device = "png", units = "in", width = 10, height = 12, dpi = 320)
+ggsave(file.path(main_dir,"summary_charts/All-GapAnalysis-Scores-Chart.png"),
+       plot = final_chart, device = "png", units = "in", width = 10, 
+       height = 12, dpi = 320)
 
 
 ################################################################################
-# Compare results using different 
+# Compare results using different inputs for raster (SDM vs buffers)
 ################################################################################
-
-
-
-
-
-
-  
-  
-  
-  
-
-
-
 
 # function to run gap analysis calculations for multiple buffer sizes and 
 #   multiple species distribution rasters
@@ -355,20 +340,20 @@ rep_gap_analysis <- function(Species_list, Occurrence_data, Raster_list,
   for(i in 1:nrow(reps)){
     print(paste0("----- NOW STARTING ANALYSES USING: ",reps$SpeciesDist[i]," -----"))
     ## run all ex situ analyses
-    ex_results <- data.frame()
+    #ex_results <- data.frame()
     print("--- STARTING EX SITU ANALYSES ---")
     print(paste0("-- BUFFER SIZE FOR G POINTS: ",reps$GBufferSize[i]/1000,"KM --"))
-    FCSex_df <- FCSex(Species_list=Species_list,
+    ex_results <- FCSex(Species_list=Species_list,
                       Occurrence_data=Occurrence_data,
-                      Raster_list=reps$Raster_list[[i]],
+                      Raster_list=Raster_list[[i]],
                       Buffer_distance=reps$GBufferSize[i],
                       Ecoregions_shp=Ecoregions_shp,
                       Occurrence_data_raw=Occurrence_data_raw)
-    FCSex_df$CalcType <- "Ex situ"
-    FCSex_df$SpeciesDist <- reps$SpeciesDist[i] 
-    FCSex_df$GBufferSizeKm <- (reps$GBufferSize[i]/1000)
+    ex_results$CalcType <- "Ex situ"
+    ex_results$SpeciesDist <- reps$SpeciesDist[i] 
+    ex_results$GBufferSizeKm <- (reps$GBufferSize[i]/1000)
     ## rename columns to remove ex (we have column for that instead)
-    colnames(FCSex_df)[2:6] <- c("SRS","GRS","ERS","FCS","FCS_class")
+    colnames(ex_results)[2:6] <- c("SRS","GRS","ERS","FCS","FCS_class")
     # rename columns to include buffer size used (this was for wide df)
     #colnames(FCSex_df)[2:6] <- c(
     #  paste0("SRSex",spdist_type[i]),
@@ -377,12 +362,12 @@ rep_gap_analysis <- function(Species_list, Occurrence_data, Raster_list,
     #  paste0("FCSex",buffer_sizes[j]/1000,"_",spdist_type[i]),
     #  paste0("FCSex_class",buffer_sizes[j]/1000,"_",spdist_type[i]))
     ## add to all results dataframe
-    ex_results <- rbind(ex_results,FCSex_df)
+    #ex_results <- rbind(ex_results,FCSex_df)
     ## run all in situ analyses
     print("--- STARTING IN SITU ANALYSES ---")
     in_results <- FCSin(Species_list=Species_list,
                         Occurrence_data=Occurrence_data,
-                        Raster_list=reps$Raster_list[[i]],
+                        Raster_list=Raster_list[[i]],
                         Ecoregions_shp=Ecoregions_shp,
                         Pro_areas=Pro_areas)
     in_results$CalcType <- "In situ"
@@ -404,7 +389,11 @@ rep_gap_analysis <- function(Species_list, Occurrence_data, Raster_list,
   return(all_results)
 }
 
-## read in other buffer sizes (we just used 50km above)
+## read in other rasterized buffer layers
+#  (created with create_distribution_rasters.R)
+## Of course this whole thing could be turned into a function where all you
+## input is the buffer size, it creates the rasterized buffers, calculates
+## everything and gives the output
   # 20km  
   buff20_files <- list.files(file.path(path.rastbuff,"20km"),pattern=".tif",full.names=T)
   buff20_files <- buff20_files[
@@ -412,6 +401,13 @@ rep_gap_analysis <- function(Species_list, Occurrence_data, Raster_list,
       file.path(path.rastbuff,"20km"),pattern=".tif",full.names=F)) 
     %in% speciesList_sdm]
   buff20_list <- lapply(buff20_files, raster)
+  # 50km  
+  buff50_files <- list.files(file.path(path.rastbuff,"50km"),pattern=".tif",full.names=T)
+  buff50_files <- buff50_files[
+    gsub("-rasterized_buffers_50km.tif","",list.files(
+      file.path(path.rastbuff,"50km"),pattern=".tif",full.names=F)) 
+    %in% speciesList_sdm]
+  buff50_list <- lapply(buff50_files, raster)
   # 100km  
   buff100_files <- list.files(file.path(path.rastbuff,"100km"),pattern=".tif",full.names=T)
   buff100_files <- buff100_files[
@@ -430,322 +426,80 @@ reps_matrix_yesSDM <- data.frame(
                   50000,
                   100000,
                   50000))
-  RasterList <- list(buff20_list,
-                     buff50_list,
-                     buff100_list,
-                     sdm_list)
+RasterList <- list(buff20_list,
+                    buff50_list,
+                    buff100_list,
+                    sdm_list)
 
-all_results_yesSDM_now <- rep_gap_analysis(
+all_results_yesSDM <- rep_gap_analysis(
   Species_list = speciesList_sdm, 
   Occurrence_data = all_occ, 
-  Rasterized_buffers_list = buff100_list,
+  Raster_list = RasterList,
   Ecoregions_shp = ecoregions, 
   Pro_areas = ProtectedAreas, 
   Occurrence_data_raw = all_occ_raw, 
   reps = reps_matrix_yesSDM)
 
+# save results
+write.csv(all_results_yesSDM,file.path(main_dir,"summary_charts",
+                                       "data_for_BufferVersusSDM_charts.csv"))
+
 ### charts to visualize results
+my.pal <- brewer.pal(name="Spectral",n=9)[c(2,7:9)]
 
 # all SRS results
-ggplot(all_results_yesSDM, 
-       aes(x = SRS, y = species)) + 
+srs <- ggplot(all_results_yesSDM, 
+              aes(x = SRS, y = Taxon)) + 
   geom_point(color="black") +
   xlim(0,100) +
   facet_grid(cols = vars(CalcType)) +
   labs(title = "Sampling Representativeness Score (SRS)")
+ggsave(file.path(main_dir,"summary_charts/SRS_BufferVersusSDM.png"),
+       plot = srs, device = "png", units = "in", width = 15, 
+       height = 12, dpi = 300)
+# all GRS results
+grs <- all_results_yesSDM %>% 
+  mutate(SpeciesDist = fct_relevel(SpeciesDist, 
+                                   "SDM","20km buffers",
+                                   "50km buffers","100km buffers")) %>%
+  ggplot(aes(x = GRS, y = Taxon, col = SpeciesDist)) + 
+  geom_point() +
+  scale_color_manual(values=my.pal) +
+  xlim(0,100) +
+  facet_grid(cols = vars(CalcType)) +
+  labs(title = "Geographical Representativeness Score (GRS)",
+       colour = "Distribution type")
+ggsave(file.path(main_dir,"summary_charts/SRS_BufferVersusSDM.png"),
+       plot = grs, device = "png", units = "in", width = 15, 
+       height = 12, dpi = 300)
+# all ERS results
+ers <- all_results_yesSDM %>% 
+  mutate(SpeciesDist = fct_relevel(SpeciesDist, 
+                                   "SDM","20km buffers",
+                                   "50km buffers","100km buffers")) %>%
+  ggplot(aes(x = ERS, y = Taxon, col = SpeciesDist)) + 
+  geom_point() +
+  scale_color_manual(values=my.pal) +
+  xlim(0,100) +
+  facet_grid(cols = vars(CalcType)) +
+  labs(title = "Ecological Representativeness Score (ERS)",
+       colour = "Distribution type")
+ggsave(file.path(main_dir,"summary_charts/SRS_BufferVersusSDM.png"),
+       plot = ers, device = "png", units = "in", width = 15, 
+       height = 12, dpi = 300)
 
 # all FCS results
-all_results_yesSDM %>% 
+fcs <- all_results_yesSDM %>% 
   mutate(SpeciesDist = fct_relevel(SpeciesDist, 
                                    "SDM","20km buffers",
                                    "50km buffers","100km buffers")) %>%
-  ggplot(aes(x = FCS, y = species, col = SpeciesDist)) + 
+  ggplot(aes(x = FCS, y = Taxon, col = SpeciesDist)) + 
     geom_point() +
+    scale_color_manual(values=my.pal) +
     xlim(0,100) +
     facet_grid(cols = vars(CalcType)) +
-    labs(title = "Final Conservation Score (FCS; average of SRS, GRS, and ERS)")
-#ggplot(all_results_yesSDM, 
-#       aes(x = FCS, y = SpeciesDist, col = GBufferSizeKm)) + 
-#  geom_point() +
-#  xlim(0,100) +
-#  facet_grid(rows = vars(species), cols = vars(CalcType)) +
-#  labs(title = "Final Conservation Score (FCS; average of SRS, GRS, and ERS)")
-
-# all GRS results
-all_results_yesSDM %>% 
-  mutate(SpeciesDist = fct_relevel(SpeciesDist, 
-                                   "SDM","20km buffers",
-                                   "50km buffers","100km buffers")) %>%
-  ggplot(aes(x = GRS, y = species, col = SpeciesDist)) + 
-    geom_point() +
-    xlim(0,100) +
-    facet_grid(cols = vars(CalcType)) +
-    labs(title = "Geographical Representativeness Score (GRS)")
-
-# all ERS results
-all_results_yesSDM %>% 
-  mutate(SpeciesDist = fct_relevel(SpeciesDist, 
-                                   "SDM","20km buffers",
-                                   "50km buffers","100km buffers")) %>%
-  ggplot(aes(x = ERS, y = species, col = SpeciesDist)) + 
-    geom_point() +
-    xlim(0,100) +
-    facet_grid(cols = vars(CalcType)) +
-    labs(title = "Ecological Representativeness Score (ERS)")
-
-#all_results_ex <- all_results_yesSDM %>% filter(CalcType=="Ex situ")
-#all_results_in <- all_results_yesSDM %>% filter(CalcType=="In situ")
-
-
-
-
-
-
-
-
-
-################################################################################
-# Functions
-################################################################################
-
-# !!! TESTING !!!
-#  Species_list <- speciesList_yesSDM
-#  Occurrence_data <- allOcc_yesSDM
-#  Raster_list <- RasterList_yesSDM[[1]]
-#  Rasterized_buffers_list <- buff50_list_yesSDM
-#  Ecoregions_shp <- ecoregions
-#  Pro_areas <- ProtectedAreas
-#  Occurrence_data_raw <- allOccRaw_yesSDM
-#  Select_database <- "GBIF"
-#  reps <- reps_matrix_yesSDM
-#  Gap_Map <- F
-#  Buffer_distance <- 50000
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# for species without SDM, we will just the three rasterized buffer layers 
-# created above:
-#spdistType_noSDM <- c("A) 20km buffers","B) 50km buffers","C) 100km buffers")
-#RasterList_noSDM <- list(buff20_list,buff50_list,buff100_list)
-
-
-
-
-
-
-### TESTING WITH SDM
-
-##Running all three ex situ gap analysis steps using FCSex function
-## repeat with multiple buffer sizes, as desired
-buffer_sizes <- c(20000,50000,100000)
-ex_results_sdm <- data.frame(species=speciesList)
-for(i in 1:length(buffer_sizes)){
-  # run analyses
-  FCSex_df <- FCSex(Species_list=speciesList,
-                    Occurrence_data=JData,
-                    Raster_list=JRasters,
-                    Buffer_distance=buffer_sizes[i],
-                    Ecoregions_shp=ecoregions,
-                    Occurrence_data_raw=JDataRaw,
-                    Select_database="IUCN_RedList")
-  # rename columns to include buffer size used
-  # we skip SRS because it doesn't use the buffer size (so same for all)
-  colnames(FCSex_df)[3:6] <- c(
-    paste0("GRSex_",buffer_sizes[i]/1000),
-    paste0("ERSex_",buffer_sizes[i]/1000),
-    paste0("FCSex_",buffer_sizes[i]/1000),
-    paste0("FCSex_class_",buffer_sizes[i]/1000)
-  )
-  # add to all results dataframe
-  ex_results_sdm <- full_join(ex_results_sdm,FCSex_df)
-}
-
-##Running all three in situ gap analysis steps using FCSin function
-in_results_sdm <- FCSin(Species_list=speciesList,
-                        Occurrence_data=JData,
-                        Raster_list=JRasters,
-                        Ecoregions_shp=ecoregions,
-                        Pro_areas=ProtectedAreas,
-                        Occurrence_data_raw=JDataRaw,
-                        Select_database="IUCN_RedList")
-
-
-### TESTING WITH RASTERIZED BUFFERS INSTEAD OF SDM
-
-##Running all three ex situ gap analysis steps using FCSex function
-## repeat with multiple buffer sizes, as desired
-buffer_sizes <- c(20000,50000,100000)
-#rasterized_buffers <- c(JDataBuff20,JDataBuff50,JDataBuff100)
-ex_results_buff <- data.frame(species=speciesList)
-for(i in 1:length(buffer_sizes)){
-  # run analyses
-  FCSex_df <- FCSex(Species_list=speciesList,
-                    Occurrence_data=JData,
-                    Raster_list=JDataBuff20, # !! CAN CHANGE THIS TOO
-                    Buffer_distance=buffer_sizes[i],
-                    Ecoregions_shp=ecoregions,
-                    Occurrence_data_raw=JDataRaw,
-                    Select_database="IUCN_RedList")
-  # rename columns to include buffer size used
-  # we skip SRS because it doesn't use the buffer size (so same for all)
-  colnames(FCSex_df)[3:6] <- c(
-    paste0("GRSex_",buffer_sizes[i]/1000),
-    paste0("ERSex_",buffer_sizes[i]/1000),
-    paste0("FCSex_",buffer_sizes[i]/1000),
-    paste0("FCSex_class_",buffer_sizes[i]/1000)
-  )
-  # add to all results dataframe
-  ex_results_buff <- full_join(ex_results_buff,FCSex_df)
-}
-
-##Running all three in situ gap analysis steps using FCSin function
-in_results_buff <- FCSin(Species_list=speciesList,
-                         Occurrence_data=JData,
-                         Raster_list=JDataBuff50,
-                         Ecoregions_shp=ecoregions,
-                         Pro_areas=ProtectedAreas,
-                         Occurrence_data_raw=JDataRaw,
-                         Select_database="IUCN_RedList")
-
-
-# view all results
-ex_results_sdm
-ex_results_buff
-
-in_results_sdm
-in_results_buff
-
-# reformat results for plotting
-
-
-
-ggplot(ex_results_sdm,
-       aes(x=GRSex_20, y=ERSex_20,
-       )) + #color=temperature_bin)) +
-  geom_point(alpha = 0.5, color="red") +
-  xlim(0, 100) + ylim(100, 0)
-
-
-ggplot(ex_results_sdm, 
-       aes(x=species, y=ERSex_20)) + #, fill=supp)) +
-  geom_bar(stat="identity", position=position_dodge())
-
-
-
-
-
-
-
-##Combine gap analysis metrics
-#FCSc_mean_df <- FCSc_mean(FCSex_df = FCSex_df, FCSin_df = FCSin_df)
-#FCSc_mean_df
-
-##Running Conservation indicator across taxa
-#indicator_df <- indicator(FCSc_mean_df)
-#indicator_df
-
-
-
-
-
-
-##Generate summary HTML file with all result
-#GetDatasets()
-
-#####Adding test data for running summaryHTML.Rmd separately
-#Sl <- speciesList
-#Od <- JData
-#Rl <- JRasters
-#Buffer_distance <- 50000
-#Ecoregions_shp <- ecoregions
-#Pro_areas <- ProtectedAreas
-
-
-source("/Users/emily/Documents/GitHub/GapAnalysis/R/SummaryHTML.R")
-summaryHTML_file <- SummaryHTML(Species_list=speciesList,
-                                Occurrence_data=JData,
-                                Raster_list=JRasters,
-                                Buffer_distance=50000,
-                                Ecoregions_shp=ecoregions,
-                                Pro_areas=ProtectedAreas,
-                                Output_Folder=file.path(main_dir),
-                                writeRasters=FALSE)
-
-
-
-
-
-##Usage with different buffer distances for ex situ gap analysis
-#Buffer distances for 5, 10, and 20 km respectively
-
-buffer_distances <- c(5000,10000,20000)
-
-SRSex_df <- SRSex(Species_list = speciesList,
-                  Occurrence_data = CucurbitaData)
-
-FCSex_df_list <- list()
-
-
-##Running all three ex situ gap analysis steps using FCSex function
-
-##Choose if gap maps are calculated for ex situ gap analysis using diferent buffer size
-Gap_Map=FALSE
-
-for(i in 1:length(speciesList)){
-  
-  FCSex_df_list[[i]] <- FCSex(Species_list=speciesList[i],
-                              Occurrence_data=CucurbitaData,
-                              Raster_list=CucurbitaRasters[i],
-                              Buffer_distance=buffer_distances[i],
-                              Ecoregions_shp=ecoregions,
-                              Gap_Map=Gap_Map)
-  
-  
-  
-};rm(i)
-
-##Returning FCSex object
-if(Gap_Map==TRUE){
-  FCSex_df <- list(FCSex=do.call(rbind,lapply(FCSex_df_list, `[[`, 1)),
-                   GRSex_maps=do.call(c,lapply(FCSex_df_list, `[[`, 2)),
-                   ERSex_maps=do.call(c,lapply(FCSex_df_list, `[[`, 3))
-  )
-} else {
-  FCSex_df <- do.call(rbind,FCSex_df_list)
-}
-
-
-##Running all three in situ gap analysis steps using FCSin function
-
-FCSin_df <- FCSin(Species_list=speciesList,
-                  Occurrence_data=CucurbitaData,
-                  Raster_list=CucurbitaRasters,
-                  Ecoregions_shp=ecoregions,
-                  Pro_areas=ProtectedAreas,
-                  Gap_Map = NULL)
-
-
-##Combine gap analysis metrics
-FCSc_mean_df <- FCSc_mean(FCSex_df = FCSex_df,FCSin_df = FCSin_df)
-
-
-##Running Conservation indicator across taxa
-indicator_df  <- indicator(FCSc_mean_df)
+    labs(title = "Final Conservation Score (FCS; average of SRS, GRS, and ERS)",
+         colour = "Distribution type")
+ggsave(file.path(main_dir,"summary_charts/SRS_BufferVersusSDM.png"),
+       plot = fcs, device = "png", units = "in", width = 15, 
+       height = 12, dpi = 300)
