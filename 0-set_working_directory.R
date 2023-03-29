@@ -28,7 +28,7 @@ if (Sys.info()[4] == "Africa.local") {
     # for IMLS Collections Value project
   #main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/IMLS MFA/occurrence_points"
     # for North American fruit and nut tree CWR project
-  main_dir <- "/Volumes/GoogleDrive-103729429307302508433/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap_Analysis"
+  main_dir <- "/Users/emily/Library/CloudStorage/GoogleDrive-ebeckman@mortonarb.org/Shared drives/Global Tree Conservation Program/4. GTCP_Projects/Gap Analyses/Conservation Gap Analysis - FRUIT & NUT TREE CWR NORTH AMERICA/Gap_Analysis"
   # set folder structure within main working directory
   gis_dir <- "gis_layers"
   taxa_dir <- "target_taxa"
