@@ -7,11 +7,14 @@
 # San Diego Botanic Garden (subcontracted to The Morton Arboretum), with 
 # support from Botanic Gardens Conservation International U.S.
 
-### Last updated: 29 January 2023
+### Last updated: 29 March 2023
 ### R version 4.2.2
 
 ### DESCRIPTION:
-# 
+# Run the GapAnalysis package, which I have forked and edited at:
+# https://github.com/eb-bruns/GapAnalysis
+# You can see results from this analysis at:
+# https://northamericanfruitnuttreecwr.github.io
 
 ### INPUTS:
 # 
@@ -36,6 +39,19 @@ my.packages <- c(# additional packages for mapping and other visualizations
                  )
 #install.packages(my.packages) #Turn on to install current versions
 lapply(my.packages, require, character.only=TRUE)
+
+################################################################################
+# Functions
+################################################################################
+
+#Round all numeric variables
+round_df <- function(x, digits) {
+  # x: data frame
+  # digits: number of digits to round
+  numeric_columns <- sapply(x, mode) == 'numeric'
+  x[numeric_columns] <-  round(x[numeric_columns], digits)
+  x
+}
 
 ################################################################################
 # Set working directory
@@ -92,7 +108,8 @@ keep_col <- c( #data source and unique ID
 # this seems to download the 10 arc minutes version instead of 2.5 arc min...
 #data(ProtectedAreas)
 #str(ProtectedAreas)
-#res(ProtectedAreas) # resolution = 0.1666667 0.1666667
+res(ProtectedAreas) # resolution = 0.1666667 0.1666667
+PA_low_res <- ProtectedAreas #using this to thin points for visualizing
 # ...so I downloaded from the source to read that in instead...
 # read in PA file downloaded from Dataverse (https://dataverse.harvard.edu/dataverse/GapAnalysis)
 ProtectedAreas <- raster(file.path(main_dir,gis_dir,"wdpa_reclass.tif"))
@@ -161,7 +178,7 @@ occ_dfs <- lapply(occ_files, read.csv)
 all_occ <- Reduce(rbind, occ_dfs)
 rm(occ_files,occ_dfs)
 # read in manual edits to occurrence data (flagging additional bad points, etc)
-manual_pt_edits <- read.csv(file.path(main_dir,occ_dir,
+manual_pt_edits <- read.csv(file.path(main_dir,occ_dir,"filtered_occurrence_data",
                                       "manual_point_edits.csv"),
                             na.strings = c("NA",""),
                             colClasses = "character")
@@ -282,7 +299,7 @@ SummaryHTML(
 #boundary <- boundary.poly
 #Gap_Map <- T
 #Buffer_distance <- 50000
-#i <- 18
+#i <- 79 #14,18,27,46,73,77,79
 #Sl <- speciesList[i]
 #Od <- all_occ[all_occ$species == speciesList[i], ]
 #OdR <- all_occ_raw[all_occ_raw$species == speciesList[i], ]
@@ -316,15 +333,61 @@ FCSin_all <- FCSin(Species_list=speciesList,
   ## Calculate means then join everything together for summary figure
 FCSc_mean_now <- FCSc_mean(FCSex_all, FCSin_all)  
 FCSc_all <- Reduce(full_join,list(FCSc_mean_now,FCSex_all[,1:4],FCSin_all[,1:4]))
+  
+## Save spreadsheet version of summary data
+  # first reorder and rename columns; arrange by FCSc mean
+FCSc_sheet <- FCSc_all %>% 
+  select(Taxon,
+         FCSc_mean,FCSc_mean_class,
+         SRSex,GRSex,ERSex,FCSex,FCSex_class,
+         SRSin,GRSin,ERSin,FCSin,FCSin_class,
+         FCS_min,FCS_min_class,FCS_max,FCS_max_class) %>%
+  rename(FCS_combined_mean = FCSc_mean, FCS_combined_class = FCSc_mean_class,
+         SRS_exsitu = SRSex, GRS_exsitu = GRSex, ERS_exsitu = ERSex, 
+          FCS_exsitu = FCSex, FCS_exsitu_class = FCSex_class,
+         SRS_insitu = SRSin, GRS_insitu = GRSin, ERS_insitu = ERSin, 
+          FCS_insitu = FCSin, FCS_insitu_class = FCSin_class) %>%
+  arrange(FCS_combined_mean)
+  # add column to indicate if SDM or buffers were used
+FCSc_sheet$potential_dist_method <- NA
+FCSc_sheet[which(FCSc_sheet$Taxon %in% speciesList_buff),
+           "potential_dist_method"] <- "50km buffers around occurrence points"
+FCSc_sheet[which(is.na(FCSc_sheet$potential_dist_method)),
+           "potential_dist_method"] <- "Species distribution model"
+  # remove underscore in taxon names
+FCSc_sheet$Taxon <- gsub("_"," ",FCSc_sheet$Taxon)
+  # round all numbers to 3 digits
+FCSc_sheet <- round_df(FCSc_sheet, 3)
+head(FCSc_sheet)
+  # write file
+write.csv(FCSc_sheet,
+          file.path(main_dir,"summary_charts/SummaryResults-NAFruitNutCWR.csv"),
+          row.names = F)
+
+## Create summary figure
   # add star to those where buffer was used instead of SDM
   FCSc_all[which(FCSc_all$Taxon %in% speciesList_buff),"Taxon"] <- 
     paste0(FCSc_all[which(FCSc_all$Taxon %in% speciesList_buff),"Taxon"]," ★")
-## Create summary figure
+  # create fig and save
 final_chart <- SummaryScoresChart(FCSc_all)
 ggsave(file.path(main_dir,"summary_charts/All-GapAnalysis-Scores-Chart.png"),
        plot = final_chart, device = "png", units = "in", width = 10, 
-       height = 12, dpi = 320)
+       # you need to adjust the height depending on how many taxa you have
+       height = 14, dpi = 320)
 
+
+
+
+
+
+
+
+
+
+
+
+
+## older section that may not be completely up-to-date...
 
 ################################################################################
 # Compare results using different inputs for raster (SDM vs buffers)
